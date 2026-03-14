@@ -38,7 +38,26 @@ Arma 3  →  C++ Extension (DLL)  →  ASP.NET Core Backend  →  React Frontend
 
 The DLL continuously sends game data (units, vehicles, groups, events) to the backend. The backend pushes updates to all connected browsers in real-time via SignalR (WebSockets). Map geometry (roads, forests, locations) is exported once per map and cached.
 
-## Prerequisites
+## Quick Start (Pre-Built EXE)
+
+The easiest way to run Athena Remastered — no development tools required:
+
+1. Download `AthenaRemastered.Server.exe` from the [Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page
+2. Run `AthenaRemastered.Server.exe` — this starts the backend and serves the frontend in one process
+3. Open `http://localhost:5000` in your browser
+4. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
+5. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching`
+6. Start a mission — the map will populate automatically
+
+The EXE is fully self-contained (no .NET runtime or Node.js needed). On other devices on your network, open `http://<your-pc-ip>:5000`.
+
+---
+
+## Development Setup
+
+If you want to build from source or contribute, follow the steps below.
+
+### Prerequisites
 
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0)
 - [Node.js 20+](https://nodejs.org/)
