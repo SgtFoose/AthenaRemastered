@@ -46,7 +46,7 @@ The easiest way to run Athena Remastered — no development tools required:
 2. Run `AthenaRemastered.Server.exe` — this starts the backend and serves the frontend in one process
 3. Open `http://localhost:5000` in your browser
 4. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
-5. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching`
+5. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching -noBE`
 6. Start a mission — the map will populate automatically
 
 The EXE is fully self-contained (no .NET runtime or Node.js needed). On other devices on your network, open `http://<your-pc-ip>:5000`.
@@ -97,7 +97,7 @@ The frontend starts on `http://localhost:5173`.
 ### 4. Set up the Arma 3 mod
 
 1. Copy the `@AthenaRemastered` folder into your Arma 3 directory
-2. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching`
+2. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching -noBE`
 3. Start or join a mission — Athena will begin streaming automatically
 
 ### 5. Open the map
