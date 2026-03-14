@@ -1,0 +1,12 @@
+name = "Athena Web Remastered";
+picture = "";
+logo = "";
+logoOver = "";
+tooltip = "Athena Web Remastered";
+tooltipOwned = "Athena Web Remastered";
+overview = "Athena Web Remastered - A modern web-based 2nd screen application for Arma 3.";
+author = "Athena Remastered Project";
+authorUrl = "";
+version = "1.0";
+versionStr = "1.0.0";
+versionAr[] = {1, 0, 0};

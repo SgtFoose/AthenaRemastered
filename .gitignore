@@ -1,0 +1,62 @@
+# Build outputs
+**/bin/
+**/obj/
+**/build/
+**/dist/
+
+# Node
+**/node_modules/
+Frontend/dist/
+
+# .NET
+*.user
+*.suo
+*.vs/
+.vs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Logs
+*.log
+*.rpt
+acs/log.txt
+
+# Temporary
+*.tmp
+*.bak
+
+# Extension build artifacts
+Extension/build/
+AthenaServer_x64.dll
+AthenaServer_x64.pdb
+
+# Compiled PBO files (keep source SQF, exclude compiled)
+*.pbo
+
+# Publish output
+AthenaRemastered/publish/
+
+# Mod runtime folders (empty at rest)
+@AthenaRemastered/Events/
+@AthenaRemastered/Exports/
+@AthenaRemastered/Mission/
+@AthenaRemastered/World/
+
+# Old mod folder (legacy)
+@Athena Web Remastered/
+
+# Debug screenshots
+objects-with-runways.png
+
+# Map cache
+MapCache/

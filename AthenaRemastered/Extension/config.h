@@ -1,0 +1,26 @@
+#pragma once
+#include <windows.h>
+#include <string>
+#include <vector>
+#include <queue>
+#include <mutex>
+#include <thread>
+#include <atomic>
+#include <sstream>
+#include <winhttp.h>
+
+#pragma comment(lib, "winhttp.lib")
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Arma 3 extension callback type (registered via RVExtensionRegisterCallback)
+// ─────────────────────────────────────────────────────────────────────────────
+typedef void (*ArmaCallback)(const char* name, const char* function, const char* data);
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Configuration (override via AthenaServerSettings.txt next to DLL)
+// ─────────────────────────────────────────────────────────────────────────────
+struct Config {
+    std::wstring host  = L"localhost";
+    int          port  = 5000;        // ASP.NET backend port
+    bool         debug = false;
+};
