@@ -25,7 +25,7 @@ typedef void (*ArmaCallback)(const char* name, const char* function, const char*
 //  Configuration (override via AthenaServerSettings.txt next to DLL)
 // ─────────────────────────────────────────────────────────────────────────────
 struct Config {
-    std::wstring host  = L"localhost";
-    int          port  = 5000;        // ASP.NET backend port
+    std::wstring host  = L"127.0.0.1"; // Use IP to avoid DNS/IPv6 delays
+    int          port  = 5000;         // ASP.NET backend port
     bool         debug = false;
 };

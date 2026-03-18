@@ -32,6 +32,7 @@ public class GameController : ControllerBase
     {
         try
         {
+            _log.LogInformation("PUT fn={Fn} args={ArgCount}", dto.Fn, dto.Args?.Count ?? 0);
             HandlePut(dto.Fn, dto.Args);
             return Ok();
         }
@@ -212,6 +213,7 @@ public class GameController : ControllerBase
     [HttpGet("request")]
     public IActionResult GetRequest()
     {
+        _log.LogInformation("GET /api/game/request polled");
         if (!_state.TryDequeueRequest(out var req))
             return NoContent();
 

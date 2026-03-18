@@ -45,6 +45,14 @@ AthenaServer_x64.pdb
 
 # Publish output
 AthenaRemastered/publish/
+AthenaRemastered/publish-single/
+
+# Private signing keys
+*.biprivatekey
+
+# Object files
+*.obj
+!*.obj.meta
 
 # Mod runtime folders (empty at rest)
 @AthenaRemastered/Events/
@@ -54,6 +62,10 @@ AthenaRemastered/publish/
 
 # Old mod folder (legacy)
 @Athena Web Remastered/
+
+# Root @AthenaRemastered is the distribution/workshop copy — large binaries
+@AthenaRemastered/Server/
+@AthenaRemastered/addons/*.bisign
 
 # Debug screenshots
 objects-with-runways.png

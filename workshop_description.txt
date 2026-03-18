@@ -1,0 +1,135 @@
+[h1]Athena Remastered — Real-Time Tactical Map for Arma 3[/h1]
+
+A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a second screen in real time. Works on any browser, tablet, or phone on your local network.
+
+[img]{STEAM_APP_IMAGE}/extras/Athena_Remastered_Splash_1.png[/img]
+
+[hr][/hr]
+
+[h1]Features[/h1]
+
+[list]
+[*] [b]Live Blue-Force Tracking[/b] — All friendly units, vehicles, and groups rendered in real time on an interactive map
+[*] [b]Full Terrain Rendering[/b] — Roads, forests, coastlines, contour lines, buildings, and named locations exported directly from the game engine
+[*] [b]Multiple Map Styles[/b] — Switch between 2D Topographic, Ground Heatmap, and Pilot Heatmap views
+[*] [b]NATO APP-6 Symbology[/b] — Group markers with proper echelon indicators
+[*] [b]Vehicle Recognition[/b] — Distinct icons for tanks, APCs, helicopters, planes, boats, artillery, drones, and more
+[*] [b]Role-Specific Unit Icons[/b] — Infantry, medic, officer, engineer, recon, MG, AT, and more
+[*] [b]Real-Time Event Feed[/b] — Live kill feed and shot tracking
+[*] [b]ORBAT Panel[/b] — Order of Battle view showing all groups organized by faction
+[*] [b]Multi-Device Support[/b] — Connect multiple browsers, tablets, or phones to a single session
+[*] [b]Server Admin Controls[/b] — Mission makers can toggle visibility of EAST/GUER/CIV sides via mission parameters
+[/list]
+
+[img]{STEAM_APP_IMAGE}/extras/Athena_Remastered_Map.png[/img]
+
+[hr][/hr]
+
+[h1]How It Works[/h1]
+
+Athena Remastered runs a lightweight local server alongside Arma 3. A C++ extension inside the game captures live unit positions, vehicles, groups, terrain, and events — then streams everything to your browser via WebSockets.
+
+[code]
+Arma 3 → C++ Extension (DLL) → Local Web Server → Your Browser
+[/code]
+
+No external servers. No cloud. Everything stays on your machine or local network.
+
+[hr][/hr]
+
+[h1]Quick Start[/h1]
+
+[olist]
+[*] [b]Subscribe[/b] to this Workshop item
+[*] [b]Run the server:[/b] Open your mod folder → [b]Server[/b] → run [b]AthenaRemastered.Server.exe[/b]
+[*] [b]Open your browser:[/b] Go to [url=http://localhost:5000]http://localhost:5000[/url]
+[*] [b]Launch Arma 3[/b] with the mod enabled (Arma 3 Launcher → Mods → enable Athena Remastered)
+[*] [b]Start a mission[/b] — the map populates automatically!
+[/olist]
+
+[b]On other devices (tablet, phone):[/b] Open [i]http://<your-pc-ip>:5000[/i] from any device on the same network.
+
+The server is fully self-contained — [b]no .NET runtime or Node.js required[/b].
+
+[hr][/hr]
+
+[h1]Supported Maps[/h1]
+
+Athena Remastered works on [b]every Arma 3 map[/b] — vanilla or modded. Terrain data (roads, forests, locations, contours) is exported automatically when you first load a map and cached for future sessions.
+
+[hr][/hr]
+
+[h1]Requirements[/h1]
+
+[list]
+[*] Arma 3 (Steam)
+[*] Windows 10/11
+[*] Any modern web browser (Chrome, Firefox, Edge, Safari)
+[/list]
+
+[hr][/hr]
+
+[h1]Server Admin Notes[/h1]
+
+[h2]Public Key (BIS Signature Verification)[/h2]
+
+This mod ships with a signed PBO and a public key for server signature verification. To allow Athena Remastered on your server:
+
+[olist]
+[*] Navigate to the mod's [b]keys[/b] folder: [b]@AthenaRemastered\keys\[/b]
+[*] Copy [b]AthenaRemasteredKey.bikey[/b] into your server's [b]Keys[/b] folder (next to your server executable)
+[*] Ensure [b]verifySignatures = 2;[/b] is set in your server config — Athena's PBO will pass verification
+[/olist]
+
+The key file is also available in the mod's Workshop folder after subscribing.
+
+[h2]Side Visibility Controls[/h2]
+
+Mission makers can control what sides are visible to Athena through mission parameters in [b]description.ext[/b]:
+[list]
+[*] Show/hide EAST forces
+[*] Show/hide Guerrilla forces
+[*] Show/hide Civilian units
+[/list]
+
+These settings are pushed automatically from the mission to all connected browsers.
+
+[hr][/hr]
+
+[h1]Version History[/h1]
+
+[b]v1.1.0[/b] — March 18, 2026
+[list]
+[*] Welcome screen with setup instructions for new users
+[*] Improved DLL performance — persistent HTTP connections (eliminates 2-second delays)
+[*] Server works correctly when launched from any directory
+[*] Connection status indicator
+[*] Rebuilt frontend and backend with latest fixes
+[*] Re-signed PBO with fresh key pair
+[/list]
+
+[b]v1.0.0[/b] — March 18, 2026
+[list]
+[*] Initial Steam Workshop release
+[*] Full real-time tracking: units, vehicles, groups, events
+[*] Terrain rendering: roads, forests, contours, locations, buildings
+[*] Self-contained server executable
+[/list]
+
+[hr][/hr]
+
+[h1]Links & Support[/h1]
+
+[list]
+[*] [url=https://github.com/SgtFoose/AthenaRemastered]GitHub Repository[/url]
+[*] [url=https://github.com/SgtFoose/AthenaRemastered/issues]Report a Bug / Request a Feature[/url]
+[/list]
+
+[hr][/hr]
+
+[h1]Credits[/h1]
+
+[list]
+[*] [b]Original Athena[/b] — Created by [url=https://www.youtube.com/channel/UCwKPaREEkjSFh7l2n3s10Sw]Bus[/url]
+[*] [b]Athena Remastered[/b] — Developed by [b]SgtFoose[/b]
+[/list]

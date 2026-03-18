@@ -27,9 +27,12 @@ public:
                                  WINHTTP_ACCESS_TYPE_NO_PROXY,
                                  WINHTTP_NO_PROXY_NAME,
                                  WINHTTP_NO_PROXY_BYPASS, 0);
-        if (m_hSession)
+        if (m_hSession) {
+            // Short timeouts for localhost (resolve, connect, send, receive ms)
+            WinHttpSetTimeouts(m_hSession, 1000, 2000, 2000, 5000);
             m_hConnect = WinHttpConnect(m_hSession, m_cfg.host.c_str(),
                                         static_cast<INTERNET_PORT>(m_cfg.port), 0);
+        }
     }
 
     ~HttpClient() {

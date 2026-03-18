@@ -1,0 +1,6 @@
+# AthenaServer Extension Settings
+# Place this file next to AthenaServer_x64.dll in the mod folder
+
+host=127.0.0.1
+port=5000
+debug=false

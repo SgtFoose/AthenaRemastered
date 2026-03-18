@@ -25,6 +25,7 @@
 
 static Config       g_cfg;
 static HttpClient*  g_httpPut      = nullptr;  // persistent — reused for all PUT calls (fast road export)
+static HttpClient*  g_httpGet      = nullptr;  // persistent — reused for all GET polls
 static ArmaCallback g_armaCallback = nullptr;
 
 static void LoadConfig() {
@@ -66,7 +67,8 @@ extern "C" {
 __declspec(dllexport) void __stdcall RVExtensionVersion(char* output, int outputSize) {
     LoadConfig();
     g_httpPut = new HttpClient(g_cfg);   // persistent — reused for all PUT calls
-    strncpy_s(output, outputSize, "AthenaServer 1.0.0", _TRUNCATE);
+    g_httpGet = new HttpClient(g_cfg);   // persistent — reused for all GET polls
+    strncpy_s(output, outputSize, "AthenaServer " ATHENA_VERSION, _TRUNCATE);
 }
 
 __declspec(dllexport) void __stdcall RVExtensionRegisterCallback(ArmaCallback cb) {
@@ -87,7 +89,9 @@ __declspec(dllexport) int __stdcall RVExtensionArgs(
 
     // "ping" — returns "host:port" so you can verify config was loaded correctly
     if (fn == "ping") {
-        std::string host(g_cfg.host.begin(), g_cfg.host.end());
+        std::string host;
+        host.reserve(g_cfg.host.size());
+        for (wchar_t wc : g_cfg.host) host += static_cast<char>(wc);
         std::string result = host + ":" + std::to_string(g_cfg.port);
         strncpy_s(output, outputSize, result.c_str(), _TRUNCATE);
         return 0;
@@ -146,14 +150,14 @@ __declspec(dllexport) int __stdcall RVExtensionArgs(
     }
 
     if (fn == "get") {
-        // GET is only called ~1/second so per-call HttpClient is fine and avoids
-        // any persistent-connection pool conflicts with the concurrent PUT stream.
-        HttpClient httpGet(g_cfg);
+        if (!g_httpGet) return -1;
         std::string body;
-        if (httpGet.Get("/api/game/request", body) && !body.empty() && body != "null") {
-            strncpy_s(output, outputSize, body.c_str(), _TRUNCATE);
+        if (g_httpGet->Get("/api/game/request", body)) {
+            if (!body.empty() && body != "null")
+                strncpy_s(output, outputSize, body.c_str(), _TRUNCATE);
+            return 0;  // HTTP succeeded (even if queue was empty)
         }
-        return 0;
+        return 1;  // HTTP failed — server unreachable
     }
 
     return -1;
