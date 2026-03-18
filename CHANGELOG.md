@@ -2,6 +2,15 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+## [1.1.1] — 2026-03-18
+
+### Fixed
+- Map change now properly clears stale geometry — switching worlds no longer bleeds old roads/forests/locations behind the new map
+- Building footprints now render filled on all maps (previously only thin outlines visible without Athena Desktop cache)
+- Map Style buttons (Ground/Pilot heatmap) now visually affect the map even when forest/tree/object layers are loaded — layers become semi-transparent so elevation colours show through
+- Splash screen now shows live export progress counters (roads, forests, locations, structures, elevations) while the game exports terrain data
+- Export phase set to "exporting" immediately on mission start — no gap between mission load and world data arrival
+
 ## [1.1.0] — 2026-03-18
 
 ### Added

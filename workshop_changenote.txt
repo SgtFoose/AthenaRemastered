@@ -1,9 +1,7 @@
-v1.1.0 — March 18, 2026
+v1.1.1 — March 18, 2026
 
-- Welcome screen with setup instructions for new users
-- Improved DLL performance: persistent HTTP connections eliminate 2-second callExtension delays
-- Server now works correctly when launched from any directory
-- Connection status indicator on welcome overlay
-- DLL version banner: "AthenaServer 1.1.0"
-- Rebuilt frontend and backend with latest fixes
-- Re-signed PBO with fresh key pair
+- Fixed: Switching maps now properly clears old terrain data (no more ghost roads/forests from previous world)
+- Fixed: Buildings now render as filled footprints on all maps (previously invisible without Athena Desktop cache)
+- Fixed: Ground and Pilot heatmap views now show elevation colours through semi-transparent forest/tree layers
+- Improved: Splash screen shows live export progress while terrain data loads
+- Improved: Export status appears immediately on mission start

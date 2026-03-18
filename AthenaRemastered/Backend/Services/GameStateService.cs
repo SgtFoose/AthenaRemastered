@@ -88,7 +88,7 @@ public class GameStateService
         // New mission — clear old state including geometry
         _groups.Clear(); _units.Clear(); _vehicles.Clear();
         lock (_geoLock) { _roads.Clear(); _forests.Clear(); _locations.Clear(); _structures.Clear(); _elevations.Clear(); }
-        lock (_exportStatusLock) { _exportStatus = new ExportStatus(); }
+        lock (_exportStatusLock) { _exportStatus = new ExportStatus { Phase = "exporting" }; }
         OnExportStatus?.Invoke(GetExportStatus());
         World = null;
         // Auto-trigger world export so the frontend gets the map background

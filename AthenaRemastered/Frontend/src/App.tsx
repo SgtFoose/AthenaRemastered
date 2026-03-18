@@ -149,15 +149,34 @@ function App() {
             <div className="welcome-banner">
               <div className="welcome-title">⬡ ATHENA REMASTERED</div>
               <div className="welcome-status">
-                {connected
+                {connected && exportStatus.phase !== 'idle'
+                  ? 'Loading world data…'
+                  : connected
                   ? 'Connected to server — waiting for game data…'
                   : 'Connecting to server…'}
               </div>
-              <div className="welcome-instructions">
-                <p>1. Run <code>Server/AthenaRemastered.Server.exe</code></p>
-                <p>2. Launch Arma 3 with the <strong>Athena Remastered</strong> mod enabled</p>
-                <p>3. Start or join a mission — live data will appear automatically</p>
-              </div>
+              {connected && exportStatus.phase !== 'idle' ? (
+                <div className="welcome-export-progress">
+                  {[
+                    { label: 'Roads',      count: exportStatus.roadCount,      done: exportStatus.roadsComplete },
+                    { label: 'Forests',    count: exportStatus.forestCount,    done: exportStatus.forestsComplete },
+                    { label: 'Locations',  count: exportStatus.locationCount,  done: exportStatus.locationsComplete },
+                    { label: 'Structures', count: exportStatus.structureCount, done: exportStatus.structuresComplete },
+                    { label: 'Elevations', count: exportStatus.elevationCount, done: exportStatus.elevationsComplete },
+                  ].map(g => (
+                    <div key={g.label} className="welcome-export-row">
+                      <span style={{ color: g.done ? '#2ecc71' : '#f0a500' }}>{g.label}</span>
+                      <span style={{ color: g.done ? '#2ecc71' : '#888' }}>{g.count}{g.done ? ' ✓' : '…'}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="welcome-instructions">
+                  <p>1. Run <code>Server/AthenaRemastered.Server.exe</code></p>
+                  <p>2. Launch Arma 3 with the <strong>Athena Remastered</strong> mod enabled</p>
+                  <p>3. Start or join a mission — live data will appear automatically</p>
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -853,6 +853,13 @@ function LayerManager({ units, vehicles, groups, world, worldSize, roads, forest
     // Guarantee object visibility: keep raster objects visible; vector structures may overlay.
     showPane('athena-structure', structures.length > 0);
     showPane('athena-objects',   true);
+    // In heatmap modes, reduce forest/tree/object opacity so the topo elevation layer is visible.
+    const forestOpacity  = renderMode === '2d' ? '1' : renderMode === 'heatmap1' ? '0.25' : '0.15';
+    const treeOpacity    = renderMode === '2d' ? '1' : '0.15';
+    const objectOpacity  = renderMode === '2d' ? '1' : '0.4';
+    const fp = map.getPane('athena-forest'); if (fp) fp.style.opacity = forestOpacity;
+    const tp2 = map.getPane('athena-tree');  if (tp2) tp2.style.opacity = treeOpacity;
+    const op2 = map.getPane('athena-objects'); if (op2) op2.style.opacity = objectOpacity;
     showPane('athena-peak',      layers.locations);
     showPane('athena-group',     layers.groups);
     showPane('athena-waypoint',  layers.waypoints);
@@ -1702,7 +1709,9 @@ function LayerManager({ units, vehicles, groups, world, worldSize, roads, forest
         color: '#5b6b7d',
         weight: isBuilding ? 1.0 : 0.85,
         opacity: 0.92,
-        fill: false,
+        fill: isBuilding,
+        fillColor: '#78889a',
+        fillOpacity: 0.55,
         interactive: false,
         pane: 'athena-structure',
         renderer: canvas,

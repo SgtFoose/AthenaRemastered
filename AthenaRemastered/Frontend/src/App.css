@@ -68,6 +68,17 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
   font-size: 11px;
   color: #e6edf3;
 }
+.welcome-export-progress {
+  margin-top: 10px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.welcome-export-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 4px;
+}
 
 /* -- Export status overlay (bottom-left of map) --------------------------- */
 .export-status-overlay {

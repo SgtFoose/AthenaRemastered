@@ -2,7 +2,6 @@
 
 A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a second screen in real time. Works on any browser, tablet, or phone on your local network.
 
-[img]{STEAM_APP_IMAGE}/extras/Athena_Remastered_Splash_1.png[/img]
 
 [hr][/hr]
 
@@ -21,7 +20,6 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 [*] [b]Server Admin Controls[/b] — Mission makers can toggle visibility of EAST/GUER/CIV sides via mission parameters
 [/list]
 
-[img]{STEAM_APP_IMAGE}/extras/Athena_Remastered_Map.png[/img]
 
 [hr][/hr]
 

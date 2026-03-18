@@ -16,6 +16,7 @@ export function armaToLatLng(posX: number, posY: number, worldSize: number): [nu
 
 export function useAthenHub() {
   const connRef = useRef<HubConnection | null>(null);
+  const currentWorldRef = useRef<string | null>(null);
   const [connected, setConnected]         = useState(false);
   const [frame, setFrame]                 = useState<GameFrame | null>(null);
   const [recentKills, setRecentKills]     = useState<KilledEvent[]>([]);
@@ -28,6 +29,28 @@ export function useAthenHub() {
   const [elevations, setElevations]       = useState<ElevationsData | null>(null);
   const [serverSettings, setServerSettings] = useState<ServerSettings>({ showEast: false, showGuer: false, showCiv: false });
   const [exportStatus, setExportStatus]     = useState<ExportStatus>({ phase: 'idle', roadCount: 0, roadsComplete: false, forestCount: 0, forestsComplete: false, locationCount: 0, locationsComplete: false, structureCount: 0, structuresComplete: false, elevationCount: 0, elevationsComplete: false });
+
+  // Clear all geometry and event state when the world changes
+  const clearForNewWorld = useCallback(() => {
+    setRoads([]);
+    setForests(null);
+    setLocations([]);
+    setStructures([]);
+    setElevations(null);
+    setRecentKills([]);
+    setRecentFired([]);
+    setExportStatus({ phase: 'idle', roadCount: 0, roadsComplete: false, forestCount: 0, forestsComplete: false, locationCount: 0, locationsComplete: false, structureCount: 0, structuresComplete: false, elevationCount: 0, elevationsComplete: false });
+  }, []);
+
+  // Detect world change and clear stale data
+  const handleWorldInfo = useCallback((wi: WorldInfo) => {
+    const prev = currentWorldRef.current;
+    if (prev && prev !== wi.nameWorld) {
+      clearForNewWorld();
+    }
+    currentWorldRef.current = wi.nameWorld;
+    setWorldInfo(wi);
+  }, [clearForNewWorld]);
 
   // Fetch cached geometry via REST on mount — reliable for large payloads (roads ~6 MB).
   // SignalR OnConnectedAsync only sends lightweight state (frame, settings, export status).
@@ -52,7 +75,10 @@ export function useAthenHub() {
         fetchJson<ExportStatus>('exportstatus'),
       ]);
       if (cancelled) return;
-      if (wi) setWorldInfo(wi);
+      if (wi) {
+        currentWorldRef.current = wi.nameWorld;
+        setWorldInfo(wi);
+      }
       if (r)  setRoads(r);
       if (f)  setForests(f);
       if (l)  setLocations(l);
@@ -74,11 +100,11 @@ export function useAthenHub() {
     conn.on('Frame',     (f: GameFrame)     => {
       setFrame(f);
       // Pick up WorldInfo from the frame snapshot too (for reconnects)
-      if (f.world) setWorldInfo(f.world);
+      if (f.world) handleWorldInfo(f.world);
     });
     conn.on('Killed',    (e: KilledEvent)   => setRecentKills(prev => [e, ...prev].slice(0, 50)));
     conn.on('Fired',     (e: FiredEvent)    => setRecentFired(prev  => [e, ...prev].slice(0, 200)));
-    conn.on('WorldInfo', (wi: WorldInfo)    => setWorldInfo(wi));
+    conn.on('WorldInfo', (wi: WorldInfo)    => handleWorldInfo(wi));
     conn.on('Roads',      (r: Road[])         => setRoads(r));
     conn.on('Forests',    (fd: ForestsData)   => setForests(fd));
     conn.on('Locations',  (l: MapLocation[])  => setLocations(l));
@@ -89,6 +115,8 @@ export function useAthenHub() {
 
     conn.onclose(()      => setConnected(false));
     conn.onreconnected(() => setConnected(true));
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
 
     // withAutomaticReconnect() only retries after a successful initial connect.
     // This loop retries the very first connection attempt until the backend is up.
@@ -108,7 +136,7 @@ export function useAthenHub() {
 
     connRef.current = conn;
     return () => { stopped = true; conn.stop(); };
-  }, []);
+  }, [handleWorldInfo]);
 
   const requestWorldExport = useCallback((command: string, data: unknown[] = []) => {
     connRef.current?.invoke('RequestWorldExport', command, '', data);
