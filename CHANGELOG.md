@@ -2,6 +2,19 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+## [1.1.0] — 2026-03-18
+
+### Added
+- Welcome screen with default background image when no game data is connected
+- Setup instructions shown on top of the map for new users
+- Connection status indicator on welcome overlay
+
+### Fixed
+- Welcome overlay now correctly persists until a world is loaded (empty Frame no longer hides it)
+- Server content root now uses EXE directory (`AppContext.BaseDirectory`) instead of CWD — server works regardless of launch directory
+- PBO packaging: SQF scripts now correctly included (Addon Builder "copy directly" fix)
+- Port references in README consolidated to port 5000 for production
+
 ## [1.0.0] — 2026-03-18
 
 ### Added

@@ -138,6 +138,29 @@ function App() {
         />
       </aside>
       <main className="map-area">
+        {/* Welcome overlay — shown when no world has been loaded yet */}
+        {!worldInfo && (
+          <div className="welcome-overlay">
+            <img
+              className="welcome-bg"
+              src="/athena-default-bg.png"
+              alt="Athena Remastered"
+            />
+            <div className="welcome-banner">
+              <div className="welcome-title">⬡ ATHENA REMASTERED</div>
+              <div className="welcome-status">
+                {connected
+                  ? 'Connected to server — waiting for game data…'
+                  : 'Connecting to server…'}
+              </div>
+              <div className="welcome-instructions">
+                <p>1. Run <code>Server/AthenaRemastered.Server.exe</code></p>
+                <p>2. Launch Arma 3 with the <strong>Athena Remastered</strong> mod enabled</p>
+                <p>3. Start or join a mission — live data will appear automatically</p>
+              </div>
+            </div>
+          </div>
+        )}
         <MapErrorBoundary>
           <AthenaMap
             units={units}

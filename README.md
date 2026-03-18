@@ -6,7 +6,9 @@
 
 Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events directly from the game engine.
 
-![Athena Remastered](Athena%20Remastered%20UI%20v0.1.0%20alpha.png)
+![Athena Remastered](Images/Athena%20Remastered%20Splash%201.png)
+
+![Athena Remastered Map](Images/Athena%20Remastered.png)
 
 ---
 

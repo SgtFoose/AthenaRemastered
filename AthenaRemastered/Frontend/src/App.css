@@ -11,6 +11,64 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
 .map-area { position: relative; background: #1a2a1a; }
 .map-area > div:first-child { width: 100%; height: 100%; }
 
+/* -- Welcome overlay (no game data yet) ----------------------------------- */
+.welcome-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 900;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  pointer-events: none;
+  background: #0d1117;
+}
+.welcome-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.35;
+  pointer-events: none;
+}
+.welcome-banner {
+  position: relative;
+  z-index: 1;
+  margin-top: 32px;
+  background: rgba(13, 17, 23, 0.92);
+  border: 1px solid #21262d;
+  border-radius: 10px;
+  padding: 20px 32px;
+  text-align: center;
+  max-width: 480px;
+  pointer-events: auto;
+}
+.welcome-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #2ecc71;
+  margin-bottom: 10px;
+}
+.welcome-status {
+  font-size: 13px;
+  color: #f0a500;
+  margin-bottom: 14px;
+}
+.welcome-instructions {
+  font-size: 12px;
+  color: #c9d1d9;
+  text-align: left;
+  line-height: 1.8;
+}
+.welcome-instructions code {
+  background: rgba(110, 118, 129, 0.25);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #e6edf3;
+}
+
 /* -- Export status overlay (bottom-left of map) --------------------------- */
 .export-status-overlay {
   position: absolute;

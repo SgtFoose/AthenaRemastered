@@ -4,7 +4,12 @@ using AthenaRemastered.Server.Services;
 try
 {
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+    WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
+});
 
 builder.Services.AddSingleton<MapCacheService>();
 builder.Services.AddSingleton<GameStateService>();
