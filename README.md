@@ -2,6 +2,8 @@
 
 **A faithful remaster of Bus's original Athena — a real-time second-screen tactical map for Arma 3.**
 
+[![Steam Workshop](https://img.shields.io/badge/Steam_Workshop-Subscribe-blue?logo=steam)](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
+
 Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events directly from the game engine.
 
 ![Athena Remastered](Athena%20Remastered%20UI%20v0.1.0%20alpha.png)
@@ -27,7 +29,7 @@ Athena Remastered runs alongside Arma 3 and provides a real-time tactical overvi
 
 ```
 Arma 3  →  C++ Extension (DLL)  →  ASP.NET Core Backend  →  React Frontend (Browser)
-           AthenaServer_x64.dll     localhost:5000             localhost:5173
+           AthenaServer_x64.dll     localhost:5000             localhost:5000
 ```
 
 | Component | Technology | What it does |
@@ -38,18 +40,23 @@ Arma 3  →  C++ Extension (DLL)  →  ASP.NET Core Backend  →  React Frontend
 
 The DLL continuously sends game data (units, vehicles, groups, events) to the backend. The backend pushes updates to all connected browsers in real-time via SignalR (WebSockets). Map geometry (roads, forests, locations) is exported once per map and cached.
 
-## Quick Start (Pre-Built EXE)
+## Quick Start (Steam Workshop)
 
-The easiest way to run Athena Remastered — no development tools required:
+The easiest way to get started:
+
+1. Subscribe to [**Athena Remastered** on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
+2. In the mod folder, run `Server/AthenaRemastered.Server.exe` — this starts the backend and serves the frontend
+3. Open `http://localhost:5000` in your browser
+4. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
+5. Start a mission — the map will populate automatically
+
+The server EXE is fully self-contained (no .NET runtime or Node.js needed). On other devices on your network, open `http://<your-pc-ip>:5000`.
+
+### Alternative: Pre-Built EXE (without Workshop)
 
 1. Download `AthenaRemastered.Server.exe` from the [Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page
-2. Run `AthenaRemastered.Server.exe` — this starts the backend and serves the frontend in one process
-3. Open `http://localhost:5000` in your browser
-4. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
-5. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching -noBE`
-6. Start a mission — the map will populate automatically
-
-The EXE is fully self-contained (no .NET runtime or Node.js needed). On other devices on your network, open `http://<your-pc-ip>:5000`.
+2. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
+3. Run the server, open the browser, launch Arma 3 with `-mod=@AthenaRemastered -filePatching`
 
 ---
 
@@ -102,9 +109,11 @@ The frontend starts on `http://localhost:5173`.
 
 ### 5. Open the map
 
-- On the same PC: open `http://localhost:5173` in your browser
-- On a tablet or phone on the same network: open `http://<your-pc-ip>:5173`
+- On the same PC: open `http://localhost:5000` in your browser
+- On a tablet or phone on the same network: open `http://<your-pc-ip>:5000`
   - Find your IP with `ipconfig` in PowerShell
+
+> **Note:** When using `npm run dev` for development, the frontend runs on `http://localhost:5173` instead.
 
 Multiple devices can connect simultaneously and will all show the same live view.
 
@@ -142,6 +151,12 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 - **Bug reports** — Open an issue on [GitHub Issues](https://github.com/SgtFoose/AthenaRemastered/issues) using the Bug Report template
 - **Feature requests** — Open an issue using the Feature Request template
+
+## Links
+
+- [**Steam Workshop**](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
+- [**GitHub Repository**](https://github.com/SgtFoose/AthenaRemastered)
+- [**GitHub Issues**](https://github.com/SgtFoose/AthenaRemastered/issues)
 
 ## Credits
 

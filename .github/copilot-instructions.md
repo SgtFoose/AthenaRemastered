@@ -84,6 +84,24 @@ Arma 3  →  C++ Extension (callExtension)  →  Backend REST API (POST /api/gam
 - Flow: `description.ext` → SQF `BIS_fnc_getParamValue` → DLL `put settings` → Backend → SignalR → browsers (read-only)
 - Model: `ServerSettings { showEast, showGuer, showCiv }`
 
+## Steam Workshop
+- **Workshop ID**: 3687225607
+- **Workshop URL**: https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607
+
+## Published Mod Structure (`@AthenaRemastered/`)
+```
+@AthenaRemastered/
+  addons/athena.pbo              Signed PBO (SQF scripts + config)
+  addons/athena.pbo.*.bisign     BIS signature
+  keys/AthenaRemasteredKey.bikey Public key for server admins
+  Server/AthenaRemastered.Server.exe  Self-contained backend + frontend
+  Server/wwwroot/                Built React frontend
+  AthenaServer_x64.dll           C++ extension DLL
+  AthenaServerSettings.txt       DLL config (host/port)
+  mod.cpp                        Arma launcher metadata
+  meta.cpp                       Workshop metadata
+```
+
 ## How to Run
 ```powershell
 # One-click:

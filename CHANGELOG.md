@@ -2,6 +2,14 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+## [1.0.0] — 2026-03-18
+
+### Added
+- Published to [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
+- Self-contained `Server/AthenaRemastered.Server.exe` included in mod for easy setup
+- BIS-signed PBO with public key for server verification
+- Workshop metadata (`meta.cpp`)
+
 ## [0.1.0-alpha] — 2026-03-13
 
 ### Added

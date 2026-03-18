@@ -1,12 +1,12 @@
-name = "Athena Web Remastered";
+name = "Athena Remastered";
 picture = "";
 logo = "";
 logoOver = "";
-tooltip = "Athena Web Remastered";
-tooltipOwned = "Athena Web Remastered";
-overview = "Athena Web Remastered - A modern web-based 2nd screen application for Arma 3.";
-author = "Athena Remastered Project";
-authorUrl = "";
+tooltip = "Athena Remastered";
+tooltipOwned = "Athena Remastered";
+overview = "A real-time second-screen tactical map for Arma 3. Live Blue-Force Tracker with terrain, NATO symbology, and event feed.";
+author = "SgtFoose";
+authorUrl = "https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607";
 version = "1.0";
 versionStr = "1.0.0";
 versionAr[] = {1, 0, 0};
