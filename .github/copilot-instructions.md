@@ -125,3 +125,25 @@ cd AthenaRemastered/Frontend; npm run dev
 Pre-exported map data at `%USERPROFILE%\Documents\Athena\Maps\{worldName}\`:
 - `Objects.txt`, `Trees.txt`, `Roads.txt`, `Forests.txt`, `Locations.txt`, `Map.txt`, `Height/Z*.txt`
 - CanvasX = worldX, CanvasY = worldSize − worldY
+
+## Release Checklist (MUST do every version bump)
+When bumping the version for a release, **ALL** of the following files must be updated:
+
+| File | What to change |
+|------|---------------|
+| `Frontend/src/version.ts` | `APP_VERSION = 'X.Y.Z'` |
+| `Frontend/package.json` | `"version": "X.Y.Z"` |
+| `Backend/AthenaRemastered.Server.csproj` | `<Version>X.Y.Z</Version>` |
+| `Extension/config.h` | `#define ATHENA_VERSION "X.Y.Z"` |
+| `@AthenaRemastered/mod.cpp` | `version`, `versionStr`, `versionAr[]` |
+| `CHANGELOG.md` | New `## [X.Y.Z]` section at the top |
+
+The server startup banner in `Program.cs` reads version from the assembly automatically — no manual change needed there.
+
+After code changes:
+1. `npm run build` in Frontend → copy `dist/*` to `publish/wwwroot/` and `@AthenaRemastered/Server/wwwroot/`
+2. `dotnet publish -c Release -o ../publish` in Backend
+3. Copy fresh `dist/*` again (dotnet publish may overwrite wwwroot)
+4. Sign PBO if SQF changed (Addon Builder + DSSignFile)
+5. Update Steam Workshop
+6. Git commit & push

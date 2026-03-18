@@ -42,9 +42,10 @@ app.UseStaticFiles();    // serves JS/CSS/icons from wwwroot/
 app.Lifetime.ApplicationStarted.Register(() =>
 {
     var url = "http://localhost:5000";
+    var ver = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?";
     Console.WriteLine();
     Console.WriteLine("  ╔══════════════════════════════════════════════╗");
-    Console.WriteLine("  ║       ⬡  ATHENA REMASTERED  SERVER         ║");
+    Console.WriteLine($"  ║   ⬡  ATHENA REMASTERED  SERVER  v{ver,-9}   ║");
     Console.WriteLine("  ╠══════════════════════════════════════════════╣");
     Console.WriteLine($"  ║  Open in browser:  {url,-25} ║");
     Console.WriteLine("  ║  Press Ctrl+C to stop the server            ║");
