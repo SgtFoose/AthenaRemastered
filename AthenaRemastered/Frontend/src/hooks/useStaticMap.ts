@@ -24,6 +24,11 @@ export function useStaticMap(worldName: string | null) {
   useEffect(() => {
     if (!worldName) { setStaticInfo(null); setContours([]); return; }
 
+    // Clear stale data from the previous world immediately so the land layer
+    // never renders old contours in the new world's coordinate space.
+    setStaticInfo(null);
+    setContours([]);
+
     let cancelled = false;
     fetch(`${API}/${encodeURIComponent(worldName)}`)
       .then(r => (r.ok ? r.json() : null))

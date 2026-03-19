@@ -14,7 +14,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  Version (bump every release alongside Frontend, Backend, and mod.cpp)
 // ─────────────────────────────────────────────────────────────────────────────
-#define ATHENA_VERSION "1.1.1"
+#define ATHENA_VERSION "1.1.2"
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Arma 3 extension callback type (registered via RVExtensionRegisterCallback)

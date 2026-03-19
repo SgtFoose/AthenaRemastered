@@ -2,6 +2,12 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+## [1.1.2] — 2026-03-19
+
+### Fixed
+- Switching to a new map no longer renders Altis land/ocean as the base layer — stale contour data is now cleared immediately when the world changes
+- Removed hardcoded "Altis" fallback world, preventing Altis terrain from eagerly loading before real game data arrives
+
 ## [1.1.1] — 2026-03-18
 
 ### Fixed

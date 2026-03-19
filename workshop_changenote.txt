@@ -1,7 +1,4 @@
-v1.1.1 — March 18, 2026
+v1.1.2 — March 19, 2026
 
-- Fixed: Switching maps now properly clears old terrain data (no more ghost roads/forests from previous world)
-- Fixed: Buildings now render as filled footprints on all maps (previously invisible without Athena Desktop cache)
-- Fixed: Ground and Pilot heatmap views now show elevation colours through semi-transparent forest/tree layers
-- Improved: Splash screen shows live export progress while terrain data loads
-- Improved: Export status appears immediately on mission start
+- Fixed: Loading any map other than Altis no longer shows Altis land/ocean as the background — the correct terrain now renders immediately for every map
+- Fixed: Removed a hardcoded "Altis" fallback that caused Altis terrain to load eagerly before real game data arrived

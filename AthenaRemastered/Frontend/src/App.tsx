@@ -72,7 +72,7 @@ function App() {
   const units    = frame?.units    ?? {}
   const vehicles = frame?.vehicles ?? {}
   const groups   = frame?.groups   ?? {}
-  const world     = worldInfo?.nameWorld ?? frame?.world?.nameWorld ?? frame?.mission?.world ?? 'Altis'
+  const world     = worldInfo?.nameWorld ?? frame?.world?.nameWorld ?? frame?.mission?.world ?? ''
 
   // Load pre-computed Athena Desktop cache (contour lines + metadata) for the active world
   const { staticInfo, contours } = useStaticMap(world || null)

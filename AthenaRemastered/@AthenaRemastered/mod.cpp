@@ -8,5 +8,5 @@ overview = "A real-time second-screen tactical map for Arma 3. Live Blue-Force T
 author = "SgtFoose";
 authorUrl = "https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607";
 version = "1.1";
-versionStr = "1.1.0";
-versionAr[] = {1, 1, 0};
+versionStr = "1.1.2";
+versionAr[] = {1, 1, 2};
