@@ -1525,7 +1525,7 @@ function LayerManager({ units, vehicles, groups, world, worldSize, roads, forest
           if (c.y + step > maxY) maxY = c.y + step;
         });
         if (!isFinite(minX)) return;
-        const PX = 6;
+        const PX = 4;  // Reduce forest density: 6 → 4 makes cells smaller/sparser
         const cols = Math.round((maxX - minX) / step);
         const rows = Math.round((maxY - minY) / step);
         if (cols <= 0 || rows <= 0) return;
