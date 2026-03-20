@@ -10,6 +10,9 @@ Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a 
 
 ![Athena Remastered Map](Images/Athena%20Remastered.png)
 
+[![Bekijk de video](https://img.youtube.com)](https://youtu.be/sXb34ZIv3jU)
+
+
 ---
 
 ## What It Does
