@@ -47,10 +47,18 @@ The DLL continuously sends game data (units, vehicles, groups, events) to the ba
 The easiest way to get started:
 
 1. Subscribe to [**Athena Remastered** on Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
-2. In the mod folder, run `Server/AthenaRemastered.Server.exe` — this starts the backend and serves the frontend
-3. Open `http://localhost:5000` in your browser
-4. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
-5. Start a mission — the map will populate automatically
+2. Open the server folder: `C:\Program Files (x86)\Steam\steamapps\common\Arma 3\!Workshop\@Athena Remastered\Server`
+3. Run `AthenaRemastered.Server.exe` — this starts the backend and serves the frontend
+4. Open `http://localhost:5000` in your browser
+5. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
+6. Start a mission — the map will populate automatically
+
+If you do not see the `!Workshop` folder in File Explorer, Windows is hiding it:
+
+1. Open File Explorer
+2. On Windows 11: select `View` -> `Show` -> `Hidden items`
+3. On Windows 10: select `View` -> check `Hidden items`
+4. If it still does not appear, open `View` -> `Options` -> `View`, then enable `Show hidden files, folders, and drives`
 
 The server EXE is fully self-contained (no .NET runtime or Node.js needed). On other devices on your network, open `http://<your-pc-ip>:5000`.
 

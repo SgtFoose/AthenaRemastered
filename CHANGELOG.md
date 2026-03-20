@@ -2,6 +2,15 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+## [1.1.3] — 2026-03-20
+
+### Fixed
+- Published server now listens on the LAN by default, so tablets and phones on the same network can connect without additional binding changes
+- Server startup output now reports usable local and LAN URLs instead of only `localhost`
+
+### Changed
+- Steam Workshop setup instructions now point users to the exact Workshop server folder and explain how to reveal the hidden `!Workshop` directory in File Explorer
+
 ## [1.1.2] — 2026-03-19
 
 ### Fixed

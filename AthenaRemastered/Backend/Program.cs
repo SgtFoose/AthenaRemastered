@@ -1,5 +1,7 @@
 using AthenaRemastered.Server.Hubs;
 using AthenaRemastered.Server.Services;
+using System.Net;
+using System.Net.Sockets;
 
 try
 {
@@ -10,6 +12,11 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
     ContentRootPath = AppContext.BaseDirectory,
     WebRootPath = Path.Combine(AppContext.BaseDirectory, "wwwroot"),
 });
+
+if (!HasExplicitListenConfiguration(builder.Configuration))
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000");
+}
 
 builder.Services.AddSingleton<MapCacheService>();
 builder.Services.AddSingleton<GameStateService>();
@@ -41,23 +48,122 @@ app.UseStaticFiles();    // serves JS/CSS/icons from wwwroot/
 // Print user-friendly startup banner after the server is ready
 app.Lifetime.ApplicationStarted.Register(() =>
 {
-    var url = "http://localhost:5000";
+    var listenUrls = app.Urls.Count > 0 ? app.Urls.ToArray() : ["http://0.0.0.0:5000"];
+    var localUrl = GetLocalBrowserUrl(listenUrls);
+    var lanUrls = GetLanConnectionUrls(listenUrls).ToArray();
     var ver = typeof(Program).Assembly.GetName().Version?.ToString(3) ?? "?";
     Console.WriteLine();
     Console.WriteLine("  ╔══════════════════════════════════════════════╗");
     Console.WriteLine($"  ║   ⬡  ATHENA REMASTERED  SERVER  v{ver,-9}   ║");
     Console.WriteLine("  ╠══════════════════════════════════════════════╣");
-    Console.WriteLine($"  ║  Open in browser:  {url,-25} ║");
+    Console.WriteLine($"  ║  Open on this PC:  {localUrl,-25} ║");
     Console.WriteLine("  ║  Press Ctrl+C to stop the server            ║");
     Console.WriteLine("  ╚══════════════════════════════════════════════╝");
+    if (lanUrls.Length > 0)
+    {
+        Console.WriteLine("  Devices on your network can connect to:");
+        foreach (var lanUrl in lanUrls)
+        {
+            Console.WriteLine($"    {lanUrl}");
+        }
+        Console.WriteLine();
+    }
     Console.WriteLine();
 
     // Auto-open the browser for convenience
-    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true }); }
+    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(localUrl) { UseShellExecute = true }); }
     catch { /* non-critical — user can open manually */ }
 });
 
 app.Run();
+
+bool HasExplicitListenConfiguration(IConfiguration configuration)
+{
+    return !string.IsNullOrWhiteSpace(configuration["urls"])
+        || !string.IsNullOrWhiteSpace(configuration["http_ports"])
+        || !string.IsNullOrWhiteSpace(configuration["https_ports"]);
+}
+
+string GetLocalBrowserUrl(IEnumerable<string> listenUrls)
+{
+    foreach (var listenUrl in listenUrls)
+    {
+        if (!Uri.TryCreate(listenUrl, UriKind.Absolute, out var uri))
+        {
+            continue;
+        }
+
+        return BuildUrl(uri, IsWildcardHost(uri.Host) ? "localhost" : uri.Host);
+    }
+
+    return "http://localhost:5000";
+}
+
+IEnumerable<string> GetLanConnectionUrls(IEnumerable<string> listenUrls)
+{
+    var lanAddresses = GetLanIPv4Addresses();
+    var urls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var listenUrl in listenUrls)
+    {
+        if (!Uri.TryCreate(listenUrl, UriKind.Absolute, out var uri))
+        {
+            continue;
+        }
+
+        if (IsWildcardHost(uri.Host))
+        {
+            foreach (var lanAddress in lanAddresses)
+            {
+                urls.Add(BuildUrl(uri, lanAddress.ToString()));
+            }
+
+            continue;
+        }
+
+        if (IPAddress.TryParse(uri.Host, out var address) && IPAddress.IsLoopback(address))
+        {
+            continue;
+        }
+
+        if (!uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            urls.Add(listenUrl.TrimEnd('/'));
+        }
+    }
+
+    return urls.OrderBy(url => url, StringComparer.OrdinalIgnoreCase);
+}
+
+IEnumerable<IPAddress> GetLanIPv4Addresses()
+{
+    try
+    {
+        return Dns.GetHostEntry(Dns.GetHostName())
+            .AddressList
+            .Where(address => address.AddressFamily == AddressFamily.InterNetwork)
+            .Where(address => !IPAddress.IsLoopback(address))
+            .Where(address => !address.ToString().StartsWith("169.254.", StringComparison.Ordinal))
+            .Distinct()
+            .OrderBy(address => address.ToString(), StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+    catch
+    {
+        return [];
+    }
+}
+
+bool IsWildcardHost(string host)
+{
+    return host is "0.0.0.0" or "*" or "+" or "::" or "[::]";
+}
+
+string BuildUrl(Uri uri, string host)
+{
+    var path = uri.AbsolutePath == "/" ? string.Empty : uri.AbsolutePath.TrimEnd('/');
+    return $"{uri.Scheme}://{host}:{uri.Port}{path}";
+}
 
 }
 catch (Exception ex)

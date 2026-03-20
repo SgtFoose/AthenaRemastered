@@ -10,6 +10,21 @@ $FrontendDir = Join-Path $Root 'Frontend'
 $PublishDir  = Join-Path $Root 'publish'
 $WwwRoot     = Join-Path $PublishDir 'wwwroot'
 
+function Remove-DirectoryRobust([string]$Path) {
+    if (!(Test-Path $Path)) { return }
+
+    try {
+        Remove-Item $Path -Recurse -Force -ErrorAction Stop
+        return
+    }
+    catch {
+        cmd.exe /c "rmdir /s /q \"$Path\"" | Out-Null
+        if (Test-Path $Path) {
+            throw
+        }
+    }
+}
+
 Write-Host '=== Athena Remastered — Publish ===' -ForegroundColor Cyan
 
 # ── 1. Build frontend ────────────────────────────────────────────────────────
@@ -49,7 +64,7 @@ if (Test-Path $MapCacheBackup) {
 # ── 3. Copy frontend build into wwwroot ───────────────────────────────────────
 Write-Host '[3/3] Copying frontend to wwwroot ...' -ForegroundColor Yellow
 $FrontendDist = Join-Path $FrontendDir 'dist'
-if (Test-Path $WwwRoot) { Remove-Item $WwwRoot -Recurse -Force }
+Remove-DirectoryRobust $WwwRoot
 Copy-Item $FrontendDist $WwwRoot -Recurse
 
 # ── Done ──────────────────────────────────────────────────────────────────────
@@ -58,4 +73,5 @@ $size = [math]::Round((Get-Item $exe).Length / 1MB, 1)
 Write-Host ''
 Write-Host "Done!  $exe  ($size MB)" -ForegroundColor Green
 Write-Host 'Users run:  AthenaRemastered.Server.exe' -ForegroundColor Green
-Write-Host 'Then open:  http://localhost:5000' -ForegroundColor Green
+Write-Host 'Open on this PC:  http://localhost:5000' -ForegroundColor Green
+Write-Host 'LAN devices:     http://<your-pc-ip>:5000' -ForegroundColor Green

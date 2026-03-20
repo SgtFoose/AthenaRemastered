@@ -1,4 +1,5 @@
-v1.1.2 — March 19, 2026
+v1.1.3 — March 20, 2026
 
-- Fixed: Loading any map other than Altis no longer shows Altis land/ocean as the background — the correct terrain now renders immediately for every map
-- Fixed: Removed a hardcoded "Altis" fallback that caused Altis terrain to load eagerly before real game data arrived
+- Fixed: The packaged server now binds for LAN access by default, so tablets and phones on the same network can connect reliably
+- Improved: Server startup now reports usable local and LAN addresses instead of only localhost
+- Improved: Workshop instructions now include the exact server folder path and how to show the hidden !Workshop folder in Windows
