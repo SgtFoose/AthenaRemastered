@@ -1,5 +1,6 @@
-v1.1.3 — March 20, 2026
+v1.1.4 — March 20, 2026
 
-- Fixed: The packaged server now binds for LAN access by default, so tablets and phones on the same network can connect reliably
-- Improved: Server startup now reports usable local and LAN addresses instead of only localhost
-- Improved: Workshop instructions now include the exact server folder path and how to show the hidden !Workshop folder in Windows
+- Changed: All four sides (WEST, EAST, GUER, CIV) are now visible by default — no mission params needed
+- Changed: Default unit export scope is now All Units (all sides), was Player Side only
+- New: Server admins can disable individual sides via mission params (ATH_showEast, ATH_showGuer, ATH_showCiv); omitting a param keeps the side visible
+- Fixed: Mission params are now only read when the class exists in description.ext, preventing accidental hidden sides when params are absent

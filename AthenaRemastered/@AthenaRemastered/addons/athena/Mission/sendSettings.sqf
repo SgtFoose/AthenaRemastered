@@ -26,15 +26,15 @@
 
 private ["_showEast", "_showGuer", "_showCiv"];
 
-// Read mission parameters — defaults to 0 (disabled) if not defined
-_showEast = "ATH_showEast" call BIS_fnc_getParamValue;
-_showGuer = "ATH_showGuer" call BIS_fnc_getParamValue;
-_showCiv  = "ATH_showCiv"  call BIS_fnc_getParamValue;
+// Read mission parameters — default to 1 (enabled/show) if not defined by the mission
+_showEast = 1;
+_showGuer = 1;
+_showCiv  = 1;
 
-// Fallback to 0 if param is not defined
-if (isNil "_showEast") then { _showEast = 0; };
-if (isNil "_showGuer") then { _showGuer = 0; };
-if (isNil "_showCiv")  then { _showCiv  = 0; };
+// Override from mission params only if the param class is defined in description.ext
+if (isClass (missionConfigFile >> "Params" >> "ATH_showEast")) then { _showEast = "ATH_showEast" call BIS_fnc_getParamValue; };
+if (isClass (missionConfigFile >> "Params" >> "ATH_showGuer")) then { _showGuer = "ATH_showGuer" call BIS_fnc_getParamValue; };
+if (isClass (missionConfigFile >> "Params" >> "ATH_showCiv"))  then { _showCiv  = "ATH_showCiv"  call BIS_fnc_getParamValue; };
 
 // Send to backend via DLL
 "AthenaServer" callExtension ["put", [

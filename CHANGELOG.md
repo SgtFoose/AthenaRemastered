@@ -2,6 +2,14 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+## [1.1.4] — 2026-03-20
+
+### Changed
+- All four sides (WEST, EAST, GUER, CIV) are now visible in the frontend by default — no mission params required
+- Default unit export scope changed from 4 (Player Side only) to 16 (All Units across all sides)
+- `ATH_showEast`, `ATH_showGuer`, `ATH_showCiv` mission params now **disable** a side when set to 0; omitting the param leaves the side visible
+- Mission param classes are now checked for existence before reading, preventing false negatives when params are absent from `description.ext`
+
 ## [1.1.3] — 2026-03-20
 
 ### Fixed

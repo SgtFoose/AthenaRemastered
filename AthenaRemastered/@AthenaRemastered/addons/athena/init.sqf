@@ -16,8 +16,8 @@ waitUntil {!isNull player};
 //64 - Specific Units (No automated collection of units, manually supplied by mission editor/scripters)
 
 //set scope variables
-player setVariable ["ATHENA_SCOPES", 15, true]; //this is the sum of the scopes you want to be available to the player
-player setVariable ["ATHENA_SCOPE", 4, true]; //this is the selected scope
+player setVariable ["ATHENA_SCOPES", 63, true]; //this is the sum of the scopes you want to be available to the player
+player setVariable ["ATHENA_SCOPE", 16, true]; //this is the selected scope
 player setVariable ["ATHENA_SCOPE_UNITS", [], false];
 player setVariable ["ATHENA_SCOPE_GROUPS", [], false];
 player setVariable ["ATHENA_SCOPE_VEHICLES", [], false];
