@@ -40,6 +40,10 @@ while {!_serverReady} do {
 	if ((_response select 1) == 0) then {
 		_serverReady = true;
 	} else {
+		if (_attempts == 5) then {
+			systemChat "Athena: Extension handshake still failing. If BattlEye is enabled, it may be blocking AthenaServer_x64.dll.";
+			hint parseText "<t size='1.1' color='#FF8800'>Athena Remastered</t><br/>Extension handshake failed.<br/>If BattlEye is enabled, it may be blocking AthenaServer_x64.dll.<br/>Check Arma RPT for: BattlEye: Blocked loading of file ...\\AthenaServer_x64.dll";
+		};
 		if (_attempts == 1) then {
 			systemChat "Athena: Waiting for backend server (http://localhost:5000)...";
 			hint parseText "<t size='1.1' color='#FF8800'>Athena Remastered</t><br/>Waiting for backend server...<br/>Start the server and it will connect automatically.";

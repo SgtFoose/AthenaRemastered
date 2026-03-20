@@ -46,4 +46,4 @@ if ($elapsed -ge $timeout) {
 
 Write-Host "[Athena] Done. Backend: http://localhost:5000  |  Frontend: $FrontendUrl" -ForegroundColor Cyan
 Write-Host "         Add to Arma 3 Steam launch options:" -ForegroundColor Gray
-Write-Host "         -mod=@AthenaRemastered -filePatching" -ForegroundColor Gray
+Write-Host "         -mod=@AthenaRemastered -filePatching -noBE" -ForegroundColor Gray

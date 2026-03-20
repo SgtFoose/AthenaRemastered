@@ -12,7 +12,6 @@ Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a 
 
 [![Bekijk de video](https://img.youtube.com)](https://youtu.be/sXb34ZIv3jU)
 
-
 ---
 
 ## What It Does
@@ -56,6 +55,10 @@ The easiest way to get started:
 5. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
 6. Start a mission — the map will populate automatically
 
+> **Important (BattlEye):** Athena uses an Arma extension DLL (`AthenaServer_x64.dll`). BattlEye blocks unregistered extension DLLs, which can show: `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`.
+>
+> Use Athena in environments where BattlEye is disabled (for example `-noBE`), or on setups where extension loading is explicitly allowed. If BattlEye is active, Athena cannot load its DLL.
+
 If you do not see the `!Workshop` folder in File Explorer, Windows is hiding it:
 
 1. Open File Explorer
@@ -69,7 +72,7 @@ The server EXE is fully self-contained (no .NET runtime or Node.js needed). On o
 
 1. Download `AthenaRemastered.Server.exe` from the [Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page
 2. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
-3. Run the server, open the browser, launch Arma 3 with `-mod=@AthenaRemastered -filePatching`
+3. Run the server, open the browser, launch Arma 3 with `-mod=@AthenaRemastered -filePatching -noBE`
 
 ---
 
@@ -120,6 +123,8 @@ The frontend starts on `http://localhost:5173`.
 2. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching -noBE`
 3. Start or join a mission — Athena will begin streaming automatically
 
+If you see `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`, BattlEye is still enabled for that launch profile.
+
 ### 5. Open the map
 
 - On the same PC: open `http://localhost:5000` in your browser
@@ -164,6 +169,14 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 
 - **Bug reports** — Open an issue on [GitHub Issues](https://github.com/SgtFoose/AthenaRemastered/issues) using the Bug Report template
 - **Feature requests** — Open an issue using the Feature Request template
+
+## Troubleshooting
+
+- **Error:** `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`
+- **Cause:** BattlEye blocks unregistered Arma extension DLLs.
+- **Fix:** Launch Arma 3 with BattlEye disabled for Athena usage (`-noBE`).
+- **Note:** This is independent of `AthenaRemastered.Server.exe`; the server can run normally while the in-game DLL is blocked.
+- **Maintainer workflow:** See [docs/BATTLEYE_REGISTRATION_AND_RELEASE.md](docs/BATTLEYE_REGISTRATION_AND_RELEASE.md) for the release gate and allowlist process.
 
 ## Links
 

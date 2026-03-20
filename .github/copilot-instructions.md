@@ -145,5 +145,6 @@ After code changes:
 2. `dotnet publish -c Release -o ../publish` in Backend
 3. Copy fresh `dist/*` again (dotnet publish may overwrite wwwroot)
 4. Sign PBO if SQF changed (Addon Builder + DSSignFile)
-5. Update Steam Workshop
-6. Git commit & push
+5. If `AthenaServer_x64.dll` changed, run the BattlEye release gate in `docs/BATTLEYE_REGISTRATION_AND_RELEASE.md` before Workshop publish
+6. Update Steam Workshop
+7. Git commit & push

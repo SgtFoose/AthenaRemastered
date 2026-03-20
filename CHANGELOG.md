@@ -2,7 +2,15 @@
 
 All notable changes to Athena Remastered will be documented in this file.
 
+For each release, include a `### BattlEye Status` subsection with one of:
+- `Registered` (allowlisted for the shipped DLL hash)
+- `Pending` (submitted, waiting on BattlEye)
+- `Not Submitted` (no submission yet)
+
 ## [1.1.4] — 2026-03-20
+
+### BattlEye Status
+- Pending (allowlist not yet confirmed for `AthenaServer_x64.dll`)
 
 ### Changed
 - All four sides (WEST, EAST, GUER, CIV) are now visible in the frontend by default — no mission params required
