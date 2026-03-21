@@ -4,6 +4,10 @@
 
 [![Steam Workshop](https://img.shields.io/badge/Steam_Workshop-Subscribe-blue?logo=steam)](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
 
+## Next Release Preview
+
+See [v1.1.6 Preview](docs/v1.1.6-preview.md) for the upcoming Active Lazes and Projectile Tracking update, including the latest screenshot.
+
 Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events directly from the game engine.
 
 ## Migration Status
@@ -139,11 +143,10 @@ If you are running a DLL-based build and see `BattlEye: Blocked loading of file 
 
 ### 5. Open the map
 
-- On the same PC: open `http://localhost:5000` in your browser
-- On a tablet or phone on the same network: open `http://<your-pc-ip>:5000`
+- For the manual development flow above (`npm run dev`): open `http://localhost:5173` in your browser
+- For the packaged/server EXE flow: open `http://localhost:5000` on the same PC
+- On a tablet or phone on the same network with the packaged/server EXE flow: open `http://<your-pc-ip>:5000`
   - Find your IP with `ipconfig` in PowerShell
-
-> **Note:** When using `npm run dev` for development, the frontend runs on `http://localhost:5173` instead.
 
 Multiple devices can connect simultaneously and will all show the same live view.
 
@@ -176,6 +179,12 @@ AthenaRemastered/
 ## Version History
 
 See [CHANGELOG.md](CHANGELOG.md) for the full version history.
+
+## Next Release Preview
+
+Follow current work for the upcoming version here:
+
+- [v1.1.6 Preview](docs/v1.1.6-preview.md)
 
 ## Reporting Issues
 

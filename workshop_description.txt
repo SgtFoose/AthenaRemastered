@@ -126,6 +126,7 @@ These settings are pushed automatically from the mission to all connected browse
 [*] Migration started toward DLL-free telemetry pipeline (SQF scheduled export + external bridge)
 [*] Reduced dependence on BattlEye allowlisting for Athena runtime data path
 [*] Documentation and release process updated for dual-mode transition (DLL-based vs DLL-free builds)
+[*] v1.1.6 preview page (Active Lazes + Projectile Tracking): [url=https://github.com/SgtFoose/AthenaRemastered/blob/main/docs/v1.1.6-preview.md]View on GitHub[/url]
 [/list]
 
 [b]v1.1.5[/b] — March 21, 2026

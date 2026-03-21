@@ -20,3 +20,15 @@
 
 **Looking Ahead:**
 We're evaluating a DLL-free alternative architecture for future releases that would eliminate all BattlEye dependencies. Stay tuned!
+
+---
+
+## Preview: v1.1.6 In Progress
+
+Want to see what we are building for the next release?
+
+- Active Lazes
+- Projectile Tracking
+
+Follow the live preview page on GitHub:
+https://github.com/SgtFoose/AthenaRemastered/blob/main/docs/v1.1.6-preview.md
