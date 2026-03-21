@@ -1,0 +1,31 @@
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     1,1,5,0
+PRODUCTVERSION  1,1,5,0
+FILEFLAGSMASK   0x3f
+FILEFLAGS       0
+FILEOS          VOS_NT_WINDOWS32
+FILETYPE        VFT_DLL
+FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "080904b0"
+        BEGIN
+            VALUE "Comments",        "Real-time Arma 3 tactical Blue-Force Tracker extension"
+            VALUE "CompanyName",     "SgtFoose"
+            VALUE "FileDescription", "Athena Remastered Server Extension"
+            VALUE "FileVersion",     "1.1.5.0"
+            VALUE "InternalName",    "AthenaServer_x64"
+            VALUE "LegalCopyright",  "(c) 2026 SgtFoose. Licensed under the terms in LICENSE."
+            VALUE "OriginalFilename","AthenaServer_x64.dll"
+            VALUE "ProductName",     "Athena Remastered"
+            VALUE "ProductVersion",  "1.1.5.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0809, 1200
+    END
+END

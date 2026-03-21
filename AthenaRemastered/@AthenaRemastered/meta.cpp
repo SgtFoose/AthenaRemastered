@@ -1,2 +1,2 @@
-name = "Athena Web Remastered";
-version = "1.0.0";
+name = "Athena Remastered";
+version = "1.1.4";

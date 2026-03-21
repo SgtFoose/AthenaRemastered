@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(AthenaServer CXX)
+project(AthenaServer CXX RC)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -11,6 +11,7 @@ endif()
 
 add_library(AthenaServer_x64 SHARED
     dllmain.cpp
+    AthenaServer.rc
 )
 
 target_include_directories(AthenaServer_x64 PRIVATE .)

@@ -7,6 +7,25 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
+## [Unreleased]
+
+## [1.1.5] — 2026-03-21
+
+### BattlEye Status
+- Pending: Allowlist submission for `AthenaServer_x64.dll`
+  - **DLL**: AthenaServer_x64.dll (v1.1.5 release bundle)
+  - **SHA256**: `3DE7F325D7B75A8BB3665C97C8DABBC2C7FD409462071BCB69462D1137D1EE02`
+  - **Size**: 279,552 bytes (0.267 MiB)
+  - **FileVersion**: 1.1.4.0 (embedded in binary)
+  - **ProductVersion**: 1.1.4.0 (embedded in binary)
+  - **Status**: Submitted to support@battleye.com for allowlisting
+  - **Workaround**: Use `-noBE` flag for singleplayer/LAN until approved
+
+### Changed
+- Kept the submitted `AthenaServer_x64.dll` binary unchanged to preserve BattlEye review hash integrity
+- Updated Frontend, Backend, Extension, and mod configs to version 1.1.5
+- Submitted DLL for BattlEye allowlisting with professional metadata
+
 ## [1.1.4] — 2026-03-20
 
 ### BattlEye Status

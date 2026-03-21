@@ -6,6 +6,15 @@
 
 Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events directly from the game engine.
 
+## Migration Status
+
+Athena Remastered is currently migrating away from `AthenaServer_x64.dll` to a script-first pipeline:
+
+- **Current stable release:** uses the DLL extension path
+- **In-progress migration:** SQF scheduled exports + external companion bridge service (no Arma DLL dependency)
+
+During migration, documentation and release notes explicitly state whether a build is **DLL-based** or **DLL-free**.
+
 ![Athena Remastered](Images/Athena%20Remastered%20Splash%201.png)
 
 ![Athena Remastered Map](Images/Athena%20Remastered.png)
@@ -32,17 +41,18 @@ Athena Remastered runs alongside Arma 3 and provides a real-time tactical overvi
 ## How It Works
 
 ```
-Arma 3  →  C++ Extension (DLL)  →  ASP.NET Core Backend  →  React Frontend (Browser)
-           AthenaServer_x64.dll     localhost:5000             localhost:5000
+Arma 3 SQF  →  Log/Telemetry Output  →  Athena Bridge Service  →  ASP.NET Core Backend  →  React Frontend
 ```
 
 | Component | Technology | What it does |
 |-----------|-----------|--------------|
-| **Extension** | C++ DLL | Loaded by Arma 3 via `callExtension`, extracts game state every frame |
-| **Backend** | ASP.NET Core 9 | REST API receives data from the DLL, stores state, broadcasts via SignalR |
+| **Extension (current)** | C++ DLL | Loaded by Arma 3 via `callExtension`, extracts game state and forwards to backend |
+| **Backend** | ASP.NET Core 9 | REST API receives data from extension, stores state, broadcasts via SignalR |
 | **Frontend** | React 19 + Vite + Leaflet | Renders the interactive tactical map in any modern browser |
+| **Future: In-Game Export** | SQF scripts | (Planned) Collects frame/events/world data on a schedule and emits structured telemetry |
+| **Future: Bridge** | External companion process | (Planned) Reads emitted telemetry, normalizes payloads, forwards to backend API |
 
-The DLL continuously sends game data (units, vehicles, groups, events) to the backend. The backend pushes updates to all connected browsers in real-time via SignalR (WebSockets). Map geometry (roads, forests, locations) is exported once per map and cached.
+The SQF pipeline emits game data (units, vehicles, groups, events) to an external bridge process. The backend pushes updates to all connected browsers in real-time via SignalR (WebSockets). Map geometry (roads, forests, locations) is exported once per map and cached.
 
 ## Quick Start (Steam Workshop)
 
@@ -55,9 +65,11 @@ The easiest way to get started:
 5. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
 6. Start a mission — the map will populate automatically
 
-> **Important (BattlEye):** Athena uses an Arma extension DLL (`AthenaServer_x64.dll`). BattlEye blocks unregistered extension DLLs, which can show: `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`.
+> **BattlEye Status (v1.1.4):** Submission for allowlisting is in progress. Currently, BattlEye may block DLL load with `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`.
 >
-> Use Athena in environments where BattlEye is disabled (for example `-noBE`), or on setups where extension loading is explicitly allowed. If BattlEye is active, Athena cannot load its DLL.
+> **In singleplayer/LAN:** Launch with `-noBE` to disable BattlEye for development and testing.
+>
+> **Future:** A DLL-free pipeline (SQF + external bridge) is planned to eliminate this dependency entirely.
 
 If you do not see the `!Workshop` folder in File Explorer, Windows is hiding it:
 
@@ -72,7 +84,7 @@ The server EXE is fully self-contained (no .NET runtime or Node.js needed). On o
 
 1. Download `AthenaRemastered.Server.exe` from the [Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page
 2. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
-3. Run the server, open the browser, launch Arma 3 with `-mod=@AthenaRemastered -filePatching -noBE`
+3. Run the server, open the browser, launch Arma 3 with `-mod=@AthenaRemastered -filePatching`
 
 ---
 
@@ -120,10 +132,10 @@ The frontend starts on `http://localhost:5173`.
 ### 4. Set up the Arma 3 mod
 
 1. Copy the `@AthenaRemastered` folder into your Arma 3 directory
-2. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching -noBE`
+2. Launch Arma 3 with: `-mod=@AthenaRemastered -filePatching`
 3. Start or join a mission — Athena will begin streaming automatically
 
-If you see `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`, BattlEye is still enabled for that launch profile.
+If you are running a DLL-based build and see `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`, BattlEye is still blocking extension load for that launch profile.
 
 ### 5. Open the map
 
@@ -173,10 +185,10 @@ See [CHANGELOG.md](CHANGELOG.md) for the full version history.
 ## Troubleshooting
 
 - **Error:** `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`
-- **Cause:** BattlEye blocks unregistered Arma extension DLLs.
-- **Fix:** Launch Arma 3 with BattlEye disabled for Athena usage (`-noBE`).
-- **Note:** This is independent of `AthenaRemastered.Server.exe`; the server can run normally while the in-game DLL is blocked.
-- **Maintainer workflow:** See [docs/BATTLEYE_REGISTRATION_AND_RELEASE.md](docs/BATTLEYE_REGISTRATION_AND_RELEASE.md) for the release gate and allowlist process.
+- **Cause:** BattlEye blocks unregistered Arma extension DLLs. Athena v1.1.4 is currently submitted for allowlisting.
+- **Workaround (now):** Launch Arma with `-noBE` to disable BattlEye for LAN/singleplayer sessions.
+- **Planned (future):** Use the DLL-free architecture (SQF scheduled export + external bridge); no Arma extension dependency.
+- **Release gate:** See [docs/BATTLEYE_REGISTRATION_AND_RELEASE.md](docs/BATTLEYE_REGISTRATION_AND_RELEASE.md) for submission details and release process.
 
 ## Links
 

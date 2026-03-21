@@ -1,6 +1,22 @@
-v1.1.4 — March 20, 2026
+## v1.1.5 — BattlEye Allowlist Submission (March 21, 2026)
 
-- Changed: All four sides (WEST, EAST, GUER, CIV) are now visible by default — no mission params needed
-- Changed: Default unit export scope is now All Units (all sides), was Player Side only
-- New: Server admins can disable individual sides via mission params (ATH_showEast, ATH_showGuer, ATH_showCiv); omitting a param keeps the side visible
-- Fixed: Mission params are now only read when the class exists in description.ext, preventing accidental hidden sides when params are absent
+**BattlEye Submission Hold (Hash-Preserved DLL)**
+
+- **Shipped DLL**: `AthenaServer_x64.dll` kept unchanged from the submitted BattlEye review binary
+- **SHA256**: `3DE7F325D7B75A8BB3665C97C8DABBC2C7FD409462071BCB69462D1137D1EE02`
+- **Size**: 279,552 bytes (0.267 MiB)
+- **File/Product Version**: 1.1.4.0 / 1.1.4.0
+- **Status**: Submitted for BattlEye allowlisting (awaiting response)
+
+**For Current Users (until BattlEye approves):**
+- Add `-noBE` flag to your Arma 3 launch parameters in Steam
+- Example: `arma3.exe -mod=@AthenaRemastered -noBE`
+- This allows offline/LAN play without BattlEye blocking the extension
+
+**What's New in 1.1.5:**
+- All components (Frontend, Backend, Extension DLL, mod scripts) updated to v1.1.5
+- DLL binary/hash frozen to match the BattlEye submission exactly
+- Documentation and Workshop updated with clear status and workarounds
+
+**Looking Ahead:**
+We're evaluating a DLL-free alternative architecture for future releases that would eliminate all BattlEye dependencies. Stay tuned!

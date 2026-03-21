@@ -25,10 +25,17 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 
 [h1]How It Works[/h1]
 
-Athena Remastered runs a lightweight local server alongside Arma 3. A C++ extension inside the game captures live unit positions, vehicles, groups, terrain, and events — then streams everything to your browser via WebSockets.
+Athena Remastered runs a lightweight local server alongside Arma 3.
+
+The project is transitioning from a C++ extension pipeline to a DLL-free pipeline:
+[list]
+[*] In-game SQF scripts collect mission/world/frame/event data on a schedule
+[*] An external companion bridge service forwards telemetry to the local Athena backend
+[*] Backend streams updates to browsers via WebSockets
+[/list]
 
 [code]
-Arma 3 → C++ Extension (DLL) → Local Web Server → Your Browser
+Arma 3 SQF → Bridge Service → Local Web Server → Your Browser
 [/code]
 
 No external servers. No cloud. Everything stays on your machine or local network.
@@ -42,15 +49,15 @@ No external servers. No cloud. Everything stays on your machine or local network
 [*] [b]Open the server folder:[/b] [b]C:\Program Files (x86)\Steam\steamapps\common\Arma 3\!Workshop\@Athena Remastered\Server[/b]
 [*] [b]Run the server:[/b] Start [b]AthenaRemastered.Server.exe[/b]
 [*] [b]Open your browser:[/b] Go to [url=http://localhost:5000]http://localhost:5000[/url]
-[*] [b]Launch Arma 3[/b] with the mod enabled and BattlEye disabled for Athena usage (for example launch arg: [b]-noBE[/b])
+[*] [b]Launch Arma 3[/b] with the mod enabled
 [*] [b]Start a mission[/b] — the map populates automatically!
 [/olist]
 
-[b]Important BattlEye note:[/b]
+[b]BattlEye Status:[/b]
 [list]
-[*] Athena requires loading [b]AthenaServer_x64.dll[/b] via Arma extension API
-[*] BattlEye blocks unregistered extension DLLs and may show: [b]BattlEye: Blocked loading of file ...\AthenaServer_x64.dll[/b]
-[*] If that message appears, Athena cannot read game data until BattlEye is disabled for that launch profile
+[*] [b]v1.1.5 Pending:[/b] Allowlisting submission is in progress (submitted March 21, 2026).
+[*] [b]Workaround (now):[/b] Use [b]-noBE[/b] launch flag for singleplayer/LAN sessions.
+[*] [b]Future (DLL-free):[/b] A migration to SQF + external bridge is planned, eliminating the DLL dependency.
 [/list]
 
 [b]If you do not see the !Workshop folder:[/b]
@@ -79,7 +86,8 @@ Athena Remastered works on [b]every Arma 3 map[/b] — vanilla or modded. Terrai
 [*] Arma 3 (Steam)
 [*] Windows 10/11
 [*] Any modern web browser (Chrome, Firefox, Edge, Safari)
-[*] BattlEye disabled while using Athena extension DLL (or an officially BattlEye-registered extension build)
+[*] [b]Current (v1.1.5):[/b] BattlEye disabled (use [b]-noBE[/b] flag for LAN/singleplayer) OR wait for allowlisting
+[*] [b]Future:[/b] No BattlEye workaround needed (DLL-free architecture planned)
 [/list]
 
 [hr][/hr]
@@ -112,6 +120,21 @@ These settings are pushed automatically from the mission to all connected browse
 [hr][/hr]
 
 [h1]Version History[/h1]
+
+[b]Next Update (in progress)[/b]
+[list]
+[*] Migration started toward DLL-free telemetry pipeline (SQF scheduled export + external bridge)
+[*] Reduced dependence on BattlEye allowlisting for Athena runtime data path
+[*] Documentation and release process updated for dual-mode transition (DLL-based vs DLL-free builds)
+[/list]
+
+[b]v1.1.5[/b] — March 21, 2026
+[list]
+[*] BattlEye allowlist request submitted for AthenaServer_x64.dll
+[*] Submission hash frozen in release package: 3DE7F325D7B75A8BB3665C97C8DABBC2C7FD409462071BCB69462D1137D1EE02
+[*] Release/version metadata updated across frontend/backend/mod files to 1.1.5
+[*] Workshop docs updated with current BattlEye status and workaround guidance
+[/list]
 
 [b]v1.1.4[/b] — March 20, 2026
 [list]
@@ -151,8 +174,8 @@ These settings are pushed automatically from the mission to all connected browse
 [h1]Links & Support[/h1]
 
 [list]
-[*] [url=https://github.com/SgtFoose/AthenaRemastered]GitHub Repository[/url]
-[*] [url=https://github.com/SgtFoose/AthenaRemastered/issues]Report a Bug / Request a Feature[/url]
+[*] [url=https://github.com/SgtFoose/AthenaRemasteredPublic]GitHub Repository[/url]
+[*] [url=https://github.com/SgtFoose/AthenaRemasteredPublic/issues]Report a Bug / Request a Feature[/url]
 [/list]
 
 [hr][/hr]

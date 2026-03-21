@@ -1,0 +1,76 @@
+Subject: Extension Whitelist Request — AthenaServer_x64.dll (Arma 3)
+
+Dear BattlEye,
+
+I would like to request allowlisting of a native extension used by the Arma 3 mod Athena Remastered.
+
+BINARY INFORMATION
+─────────────────────────────────────────────────────────────────────────────
+
+File: AthenaServer_x64.dll
+Version: 1.1.5
+SHA256: 3DE7F325D7B75A8BB3665C97C8DABBC2C7FD409462071BCB69462D1137D1EE02
+Size: 279,552 bytes
+Public source: https://github.com/SgtFoose/AthenaRemasteredPublic
+
+
+EXECUTION MODEL
+─────────────────────────────────────────────────────────────────────────────
+
+• Loaded via Arma 3 callExtension interface only
+• No manual injection, no remote thread creation, no memory patching
+• Runs strictly within the Arma extension API boundaries
+• No use of code hooking frameworks or reflective loading
+
+
+FUNCTIONALITY
+─────────────────────────────────────────────────────────────────────────────
+
+The extension provides a blue-force tracking interface by exporting in-game 
+positional data to a local companion service.
+
+Communication: HTTP (WinHTTP) → http://127.0.0.1:5000 only
+Data flow: outbound telemetry only (game → localhost)
+No command/control channel from external services into the game
+
+
+SECURITY CHARACTERISTICS
+─────────────────────────────────────────────────────────────────────────────
+
+The DLL:
+
+• Does not read or modify arbitrary process memory
+• Does not hook or intercept game or system APIs
+• Does not load additional modules or execute external code
+• Does not communicate with external internet endpoints
+• Operates only on data explicitly provided via SQF / extension calls
+• A build without networking functionality can be provided if required 
+  for review.
+
+
+SCOPE OF USE
+─────────────────────────────────────────────────────────────────────────────
+
+• Used in controlled multiplayer environments (units/communities)
+• Not designed for competitive advantage or gameplay manipulation
+• Provides situational awareness comparable to map-based tools
+
+
+RATIONALE FOR REQUEST
+─────────────────────────────────────────────────────────────────────────────
+
+Without allowlisting, BattlEye blocks the DLL due to its native nature.
+The extension adheres strictly to Arma's extension interface and does not 
+introduce cheat vectors.
+
+I have attached the compiled DLL for your review.
+Please let me know if additional technical details or source clarification 
+is required.
+
+Kind regards,
+Jeroen van der Velden
+
+
+═════════════════════════════════════════════════════════════════════════════
+
+ATTACHMENT: AthenaServer_x64.dll (from: AthenaRemastered/@AthenaRemastered/AthenaServer_x64.dll)
