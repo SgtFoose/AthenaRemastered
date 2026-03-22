@@ -4,9 +4,11 @@
 
 [![Steam Workshop](https://img.shields.io/badge/Steam_Workshop-Subscribe-blue?logo=steam)](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
 
-## Next Release Preview
+## Latest Release
 
-See [v1.1.6 Preview](docs/v1.1.6-preview.md) for the upcoming Active Lazes and Projectile Tracking update, including the latest screenshot.
+Athena Remastered v1.1.6 adds Active Lazes and Projectile Tracking for faster target handoff and better shot-path awareness. Follow-up updates improved projectile heading accuracy (turret-based direction) and map rendering consistency for day-to-day ops. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
+
+![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 
 Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events directly from the game engine.
 
@@ -37,6 +39,8 @@ Athena Remastered runs alongside Arma 3 and provides a real-time tactical overvi
 - **NATO APP-6 symbology** — group markers with proper echelon indicators
 - **Vehicle recognition** — distinct icons per vehicle category (tanks, APCs, helicopters, planes, boats, artillery, drones, etc.)
 - **Role-specific unit icons** — infantry, medic, officer, engineer, recon, MG, AT, and more
+- **Active Lazes** — live laser designation points rendered directly on the map
+- **Projectile Tracking** — predicted missile, rocket, artillery, and cruise-weapon paths with ETA labels
 - **Event feed** — real-time kill feed and shot tracking
 - **ORBAT panel** — Order of Battle view showing all groups organized by faction
 - **Multi-device support** — connect multiple browsers/tablets to a single session
@@ -69,7 +73,7 @@ The easiest way to get started:
 5. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
 6. Start a mission — the map will populate automatically
 
-> **BattlEye Status (v1.1.4):** Submission for allowlisting is in progress. Currently, BattlEye may block DLL load with `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`.
+> **BattlEye Status (v1.1.6):** DLL-based sessions still require `-noBE` for singleplayer/LAN until the 1.1.6 extension build is allowlisted.
 >
 > **In singleplayer/LAN:** Launch with `-noBE` to disable BattlEye for development and testing.
 >
@@ -194,7 +198,7 @@ Follow current work for the upcoming version here:
 ## Troubleshooting
 
 - **Error:** `BattlEye: Blocked loading of file ...\AthenaServer_x64.dll`
-- **Cause:** BattlEye blocks unregistered Arma extension DLLs. Athena v1.1.4 is currently submitted for allowlisting.
+- **Cause:** BattlEye blocks unregistered Arma extension DLLs. Athena v1.1.6 still requires a fresh allowlist approval for the shipped DLL build.
 - **Workaround (now):** Launch Arma with `-noBE` to disable BattlEye for LAN/singleplayer sessions.
 - **Planned (future):** Use the DLL-free architecture (SQF scheduled export + external bridge); no Arma extension dependency.
 - **Release gate:** See [docs/BATTLEYE_REGISTRATION_AND_RELEASE.md](docs/BATTLEYE_REGISTRATION_AND_RELEASE.md) for submission details and release process.

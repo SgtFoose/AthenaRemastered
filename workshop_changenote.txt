@@ -1,34 +1,25 @@
-## v1.1.5 — BattlEye Allowlist Submission (March 21, 2026)
+## v1.1.6 — Active Lazes + Projectile Tracking + Follow-up Fixes (March 22, 2026)
 
-**BattlEye Submission Hold (Hash-Preserved DLL)**
+**What’s New:**
 
-- **Shipped DLL**: `AthenaServer_x64.dll` kept unchanged from the submitted BattlEye review binary
-- **SHA256**: `3DE7F325D7B75A8BB3665C97C8DABBC2C7FD409462071BCB69462D1137D1EE02`
-- **Size**: 279,552 bytes (0.267 MiB)
-- **File/Product Version**: 1.1.4.0 / 1.1.4.0
-- **Status**: Submitted for BattlEye allowlisting (awaiting response)
+- Added **Active Lazes** so live laser designation points appear on the map for connected clients
+- Added **Projectile Tracking** with predicted flight paths and ETA labels for major ordnance
+- Improved fired-event targeting data using assigned targets, laser targets, and scanned laser objects
+- Captured vehicle-fired heavy ordnance more reliably with dedicated vehicle `Fired` handlers
 
-**For Current Users (until BattlEye approves):**
-- Add `-noBE` flag to your Arma 3 launch parameters in Steam
+**Follow-up Improvements (after release):**
+
+- Projectile direction now uses turret/fire vector data for artillery and vehicle weapons (instead of hull-only direction)
+- End-to-end fired-event direction flow aligned across SQF, backend, and frontend
+- CIV map/ORBAT filtering and color handling corrected
+- Tree/object rendering orientation and visibility tuned for clearer map output
+
+**BattlEye / DLL Note:**
+
+- Current DLL-based sessions should still use `-noBE` for singleplayer/LAN until the 1.1.6 extension build is allowlisted
 - Example: `arma3.exe -mod=@AthenaRemastered -noBE`
-- This allows offline/LAN play without BattlEye blocking the extension
 
-**What's New in 1.1.5:**
-- All components (Frontend, Backend, Extension DLL, mod scripts) updated to v1.1.5
-- DLL binary/hash frozen to match the BattlEye submission exactly
-- Documentation and Workshop updated with clear status and workarounds
+**Docs / Release Notes:**
 
-**Looking Ahead:**
-We're evaluating a DLL-free alternative architecture for future releases that would eliminate all BattlEye dependencies. Stay tuned!
-
----
-
-## Preview: v1.1.6 In Progress
-
-Want to see what we are building for the next release?
-
-- Active Lazes
-- Projectile Tracking
-
-Follow the live preview page on GitHub:
-https://github.com/SgtFoose/AthenaRemastered/blob/main/docs/v1.1.6-preview.md
+- README, changelog, and Workshop metadata updated for v1.1.6
+- Feature overview: https://github.com/SgtFoose/AthenaRemastered/blob/main/docs/v1.1.6-preview.md

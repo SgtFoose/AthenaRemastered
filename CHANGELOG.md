@@ -9,6 +9,27 @@ For each release, include a `### BattlEye Status` subsection with one of:
 
 ## [Unreleased]
 
+### Fixed
+- Projectile heading for artillery/vehicle fire now uses turret-derived fire direction where available, preventing hull-direction drift in trajectory visuals
+- Fired event direction payload is carried consistently from SQF through backend to frontend rendering
+- CIV side filtering and color behavior in map/ORBAT views are now consistent
+- Tree/object static map rendering was adjusted for orientation consistency and practical zoom visibility
+
+## [1.1.6] — 2026-03-21
+
+### BattlEye Status
+- Not Submitted: `AthenaServer_x64.dll` v1.1.6 requires a fresh allowlist submission if you ship a rebuilt DLL
+- Workaround: Use `-noBE` for singleplayer/LAN on the current DLL-based path
+
+### Added
+- Active Laze markers on the live map so laser designation points are visible to connected clients in real time
+- Projectile Tracking layer with predicted arcs and ETA labels for rockets, missiles, artillery, mortars, and cruise weapons
+
+### Changed
+- Fired events now carry target metadata from assigned targets, laser targets, and scanned laser objects to improve projectile prediction
+- Vehicle-fired ordnance is captured more reliably through dedicated vehicle `Fired` handlers in addition to infantry events
+- Release metadata, Workshop text, and README updated for v1.1.6
+
 ## [1.1.5] — 2026-03-21
 
 ### BattlEye Status
