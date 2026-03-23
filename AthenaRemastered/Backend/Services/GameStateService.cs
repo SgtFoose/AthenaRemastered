@@ -34,14 +34,20 @@ public class GameStateService
     private readonly ConcurrentDictionary<string, Group>   _groups   = new();
     private readonly ConcurrentDictionary<string, Unit>    _units    = new();
     private readonly ConcurrentDictionary<string, Vehicle> _vehicles = new();
+    private readonly ConcurrentDictionary<string, ActiveLaze> _lazes = new();
 
     private readonly ConcurrentQueue<FiredEvent>  _fired  = new();
     private readonly ConcurrentQueue<KilledEvent> _killed = new();
+
+    // ── Dead unit tracking ──────────────────────────────────────────────────
+    private readonly HashSet<string> _deadUnits = [];     // unit IDs that have been killed
+    private readonly object _deadUnitsLock = new();       // lock for thread-safe modifications
 
     // ── Map geometry ─────────────────────────────────────────────────────────
 
     private readonly object              _geoLock  = new();
     private readonly List<Road>          _roads     = [];
+    private readonly List<TreePoint>     _trees     = [];
     private readonly List<ForestCell>    _forests   = [];
     private readonly List<MapLocation>   _locations = [];
     private readonly List<MapStructure>  _structures = [];
@@ -59,12 +65,13 @@ public class GameStateService
     private readonly object _exportStatusLock = new();
     private const int ExportBroadcastInterval = 50; // broadcast every N items
 
-    public ExportStatus GetExportStatus() { lock (_exportStatusLock) return new ExportStatus { Phase = _exportStatus.Phase, RoadCount = _exportStatus.RoadCount, RoadsComplete = _exportStatus.RoadsComplete, ForestCount = _exportStatus.ForestCount, ForestsComplete = _exportStatus.ForestsComplete, LocationCount = _exportStatus.LocationCount, LocationsComplete = _exportStatus.LocationsComplete, StructureCount = _exportStatus.StructureCount, StructuresComplete = _exportStatus.StructuresComplete, ElevationCount = _exportStatus.ElevationCount, ElevationsComplete = _exportStatus.ElevationsComplete }; }
+    public ExportStatus GetExportStatus() { lock (_exportStatusLock) return new ExportStatus { Phase = _exportStatus.Phase, RoadCount = _exportStatus.RoadCount, RoadsComplete = _exportStatus.RoadsComplete, TreeCount = _exportStatus.TreeCount, TreesComplete = _exportStatus.TreesComplete, ForestCount = _exportStatus.ForestCount, ForestsComplete = _exportStatus.ForestsComplete, LocationCount = _exportStatus.LocationCount, LocationsComplete = _exportStatus.LocationsComplete, StructureCount = _exportStatus.StructureCount, StructuresComplete = _exportStatus.StructuresComplete, ElevationCount = _exportStatus.ElevationCount, ElevationsComplete = _exportStatus.ElevationsComplete }; }
 
     // ── Events fired when state changes ─────────────────────────────────────
 
     public event Action<GameFrame>?          OnFrame;
     public event Action<FiredEvent>?         OnFired;
+    public event Action<FiredImpactEvent>?   OnFiredImpact;
     public event Action<KilledEvent>?        OnKilled;
     public event Action<WorldInfo>?          OnWorldInfo;
     public event Action<List<Road>>?         OnRoadsComplete;
@@ -86,8 +93,9 @@ public class GameStateService
             Player = player, SteamId = steamId
         };
         // New mission — clear old state including geometry
-        _groups.Clear(); _units.Clear(); _vehicles.Clear();
-        lock (_geoLock) { _roads.Clear(); _forests.Clear(); _locations.Clear(); _structures.Clear(); _elevations.Clear(); }
+        _groups.Clear(); _units.Clear(); _vehicles.Clear(); _lazes.Clear();
+        lock (_deadUnitsLock) { _deadUnits.Clear(); }
+        lock (_geoLock) { _roads.Clear(); _trees.Clear(); _forests.Clear(); _locations.Clear(); _structures.Clear(); _elevations.Clear(); }
         lock (_exportStatusLock) { _exportStatus = new ExportStatus { Phase = "exporting" }; }
         OnExportStatus?.Invoke(GetExportStatus());
         World = null;
@@ -130,13 +138,23 @@ public class GameStateService
     }
 
     public void PutUpdateUnit(string id, string groupId, string vehicleId,
-                              double x, double y, double z, double dir, double speed)
+                              double x, double y, double z, double dir, double speed,
+                              double laserX, double laserY, bool laserActive)
     {
         if (_units.TryGetValue(id, out var u))
         {
             u.GroupId = groupId; u.VehicleId = vehicleId;
             u.PosX = x; u.PosY = y; u.PosZ = z;
             u.Dir = dir; u.Speed = speed;
+        }
+
+        if (laserActive)
+        {
+            _lazes[id] = new ActiveLaze { UnitId = id, PosX = laserX, PosY = laserY };
+        }
+        else
+        {
+            _lazes.TryRemove(id, out _);
         }
     }
 
@@ -157,23 +175,88 @@ public class GameStateService
     }
 
     public void PutFired(string unitId, string vehicleId, string weapon,
-                         string muzzle, string mode, string ammo, string magazine, string projectile)
+                         string muzzle, string mode, string ammo, string magazine, string projectile,
+                         double targetX, double targetY, string targetSource, string targetEntityId, bool targetAmbiguous,
+                         double fireDir)
     {
         var e = new FiredEvent
         {
             UnitId = unitId, VehicleId = vehicleId, Weapon = weapon,
             Muzzle = muzzle, Mode = mode, Ammo = ammo,
-            Magazine = magazine, Projectile = projectile
+            Magazine = magazine, Projectile = projectile,
+            TargetX = string.IsNullOrWhiteSpace(targetSource) ? null : targetX,
+            TargetY = string.IsNullOrWhiteSpace(targetSource) ? null : targetY,
+            TargetSource = targetSource,
+            TargetEntityId = targetEntityId,
+            TargetAmbiguous = targetAmbiguous,
+            FireDir = fireDir,
         };
         _fired.Enqueue(e);
         OnFired?.Invoke(e);
     }
 
+    public void PutFiredImpact(string unitId, string vehicleId, string weapon, string muzzle,
+                                double impactX, double impactY, double tof)
+    {
+        var e = new FiredImpactEvent
+        {
+            UnitId = unitId, VehicleId = vehicleId, Weapon = weapon, Muzzle = muzzle,
+            ImpactX = impactX, ImpactY = impactY, TimeOfFlight = tof,
+        };
+        OnFiredImpact?.Invoke(e);
+    }
+
     public void PutKilled(string victim, string killer, string instigator)
     {
-        var e = new KilledEvent { Victim = victim, Killer = killer, Instigator = instigator };
+        var victimId = ResolveUnitId(victim);
+        var killerId = ResolveUnitId(killer);
+        var instigatorId = ResolveUnitId(instigator);
+
+        var e = new KilledEvent
+        {
+            Victim = ResolveUnitDisplayName(victim, victimId),
+            Killer = ResolveUnitDisplayName(killer, killerId),
+            Instigator = ResolveUnitDisplayName(instigator, instigatorId)
+        };
         _killed.Enqueue(e);
         OnKilled?.Invoke(e);
+
+        if (string.IsNullOrWhiteSpace(victimId))
+        {
+            return;
+        }
+
+        // Track dead unit so it's filtered from the map frame
+        lock (_deadUnitsLock)
+        {
+            _deadUnits.Add(victimId);
+        }
+
+        // Remove the dead unit from state immediately
+        _units.TryRemove(victimId, out _);
+        _lazes.TryRemove(victimId, out _);
+
+        HashSet<string> deadUnitSnapshot;
+        lock (_deadUnitsLock)
+        {
+            deadUnitSnapshot = [.._deadUnits];
+        }
+
+        // Remove vehicles whose crews are entirely dead
+        var vehiclesToRemove = new List<string>();
+        foreach (var kvp in _vehicles)
+        {
+            var vehicle = kvp.Value;
+            // Remove vehicle if all crew members are dead
+            if (vehicle.Crew.Count > 0 && vehicle.Crew.All(cm => deadUnitSnapshot.Contains(cm.UnitId)))
+            {
+                vehiclesToRemove.Add(kvp.Key);
+            }
+        }
+        foreach (var vehicleId in vehiclesToRemove)
+        {
+            _vehicles.TryRemove(vehicleId, out _);
+        }
     }
 
     // ── World / geometry PUT handlers ────────────────────────────────────────
@@ -191,7 +274,7 @@ public class GameStateService
         };
         OnWorldInfo?.Invoke(World);
 
-        lock (_geoLock) { _roads.Clear(); _forests.Clear(); _locations.Clear(); _structures.Clear(); _elevations.Clear(); }
+        lock (_geoLock) { _roads.Clear(); _trees.Clear(); _forests.Clear(); _locations.Clear(); _structures.Clear(); _elevations.Clear(); }
 
         // Save last world name so it auto-loads on next backend start
         _cache.SaveLastWorld(nameWorld);
@@ -202,6 +285,8 @@ public class GameStateService
             var cachedRoads     = _cache.LoadRoads(nameWorld);
             var cachedForests   = _cache.LoadForests(nameWorld);
             var cachedLocations = _cache.LoadLocations(nameWorld);
+            bool hasTrees = _cache.HasTreesCache(nameWorld);
+            var cachedTrees = hasTrees ? _cache.LoadTrees(nameWorld) : [];
 
             bool hasStructures = _cache.HasStructuresCache(nameWorld);
             bool hasElevations = _cache.HasElevationsCache(nameWorld);
@@ -211,6 +296,7 @@ public class GameStateService
             lock (_geoLock)
             {
                 _roads.AddRange(cachedRoads);
+                _trees.AddRange(cachedTrees);
                 _forests.AddRange(cachedForests.Cells);
                 _locations.AddRange(cachedLocations);
                 _structures.AddRange(cachedStructures);
@@ -224,8 +310,9 @@ public class GameStateService
             {
                 _exportStatus = new ExportStatus
                 {
-                    Phase = (hasStructures && hasElevations) ? "cached" : "exporting",
+                    Phase = (hasTrees && hasStructures && hasElevations) ? "cached" : "exporting",
                     RoadCount = cachedRoads.Count, RoadsComplete = true,
+                    TreeCount = cachedTrees.Count, TreesComplete = hasTrees,
                     ForestCount = cachedForests.Cells.Count, ForestsComplete = true,
                     LocationCount = cachedLocations.Count, LocationsComplete = true,
                     StructureCount = cachedStructures.Count, StructuresComplete = hasStructures,
@@ -236,12 +323,25 @@ public class GameStateService
 
             // Broadcast cached data to all connected frontends
             OnRoadsComplete?.Invoke(cachedRoads);
+            if (hasTrees)
+            {
+                _log.LogInformation("Loaded {Count} cached trees for '{World}'", cachedTrees.Count, nameWorld);
+            }
             OnForestsComplete?.Invoke(cachedForests);
             OnLocationsComplete?.Invoke(cachedLocations);
             if (hasStructures) OnStructuresComplete?.Invoke(cachedStructures);
             if (hasElevations) OnElevationsComplete?.Invoke(cachedElevations);
 
             // Queue any missing exports from Arma
+            if (!hasTrees)
+            {
+                var tr = Math.Sqrt(2) * (sizeWorld / 2.0) * 1.10;
+                EnqueueRequest(new ExtensionRequest
+                {
+                    Command = "trees", Client = "server",
+                    Data    = new List<object> { 0.0, centerX, centerY, tr }
+                });
+            }
             if (!hasStructures)
             {
                 var sr = Math.Sqrt(2) * (sizeWorld / 2.0) * 1.05;
@@ -279,6 +379,11 @@ public class GameStateService
         {
             Command = "roads", Client = "server",
             Data    = new List<object> { 0.0, half, half, roadRadius }
+        });
+        EnqueueRequest(new ExtensionRequest
+        {
+            Command = "trees", Client = "server",
+            Data    = new List<object> { 0.0, centerX, centerY, roadRadius }
         });
         EnqueueRequest(new ExtensionRequest
         {
@@ -360,6 +465,72 @@ public class GameStateService
             lock (_exportStatusLock) { _exportStatus.ForestCount = count; }
             OnExportStatus?.Invoke(GetExportStatus());
         }
+    }
+
+    public void PutTreePoint(double x, double y, string model)
+    {
+        int count;
+        lock (_geoLock)
+        {
+            _trees.Add(new TreePoint { X = x, Y = y, Model = model });
+            count = _trees.Count;
+        }
+        if (count % ExportBroadcastInterval == 0)
+        {
+            lock (_exportStatusLock) { _exportStatus.TreeCount = count; }
+            OnExportStatus?.Invoke(GetExportStatus());
+        }
+    }
+
+    /// <summary>
+    /// Parses a batch of tree positions from a semicolon-delimited string: "x1,y1;x2,y2;..."
+    /// </summary>
+    public void PutTreeBatch(string batch)
+    {
+        if (string.IsNullOrWhiteSpace(batch)) return;
+
+        var entries = batch.Split(';', StringSplitOptions.RemoveEmptyEntries);
+        var points = new List<TreePoint>(entries.Length);
+
+        foreach (var entry in entries)
+        {
+            var sep = entry.IndexOf(',');
+            if (sep < 0) continue;
+
+            if (double.TryParse(entry.AsSpan(0, sep), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var x) &&
+                double.TryParse(entry.AsSpan(sep + 1), System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out var y))
+            {
+                points.Add(new TreePoint { X = x, Y = y });
+            }
+        }
+
+        if (points.Count == 0) return;
+
+        int count;
+        lock (_geoLock)
+        {
+            _trees.AddRange(points);
+            count = _trees.Count;
+        }
+        lock (_exportStatusLock) { _exportStatus.TreeCount = count; }
+        OnExportStatus?.Invoke(GetExportStatus());
+    }
+
+    public void PutTreesComplete()
+    {
+        List<TreePoint> snapshot;
+        lock (_geoLock) snapshot = [.._trees];
+        lock (_exportStatusLock)
+        {
+            _exportStatus.TreeCount = snapshot.Count;
+            _exportStatus.TreesComplete = true;
+            CheckAllExportsComplete();
+        }
+        OnExportStatus?.Invoke(GetExportStatus());
+        if (World != null) _cache.SaveTrees(World.NameWorld, snapshot);
+        _log.LogInformation("Tree export complete: {Count} tree points", snapshot.Count);
     }
 
     public void PutForestsComplete()
@@ -490,7 +661,7 @@ public class GameStateService
     /// <summary>Must be called while holding _exportStatusLock.</summary>
     private void CheckAllExportsComplete()
     {
-        if (_exportStatus.RoadsComplete && _exportStatus.ForestsComplete
+        if (_exportStatus.RoadsComplete && _exportStatus.TreesComplete && _exportStatus.ForestsComplete
             && _exportStatus.LocationsComplete && _exportStatus.StructuresComplete
             && _exportStatus.ElevationsComplete)
             _exportStatus.Phase = "complete";
@@ -498,6 +669,7 @@ public class GameStateService
 
     // Accessors so AthenaHub can send stored geometry to freshly-connected clients
     public List<Road>           GetRoads()      { lock (_geoLock) return [.._roads];     }
+    public List<TreePoint>      GetTrees()      { lock (_geoLock) return [.._trees];     }
     public ForestsData           GetForests()    { lock (_geoLock) return new ForestsData { SampleSize = _forestSampleSize, Cells = [.._forests] }; }
     public List<MapLocation>     GetLocations()  { lock (_geoLock) return [.._locations]; }
     public List<MapStructure>    GetStructures()  { lock (_geoLock) return [.._structures]; }
@@ -511,6 +683,35 @@ public class GameStateService
 
     public int PendingRequestCount => _requests.Count;
 
+    // Frontend-triggered re-export: force a fresh world export cycle and clear stale cache/state.
+    public void RequestWorldReexport()
+    {
+        var worldName = World?.NameWorld;
+
+        lock (_geoLock)
+        {
+            _roads.Clear();
+            _trees.Clear();
+            _forests.Clear();
+            _locations.Clear();
+            _structures.Clear();
+            _elevations.Clear();
+        }
+
+        lock (_exportStatusLock)
+        {
+            _exportStatus = new ExportStatus { Phase = "exporting" };
+        }
+        OnExportStatus?.Invoke(GetExportStatus());
+
+        if (!string.IsNullOrWhiteSpace(worldName))
+        {
+            _cache.ClearWorldCache(worldName);
+        }
+
+        EnqueueRequest(new ExtensionRequest { Command = "world", Client = "server", Data = [] });
+    }
+
     // ── Server settings ────────────────────────────────────────────────────
 
     public void UpdateSettings(ServerSettings settings)
@@ -521,15 +722,119 @@ public class GameStateService
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private GameFrame BuildFrame() => new()
+    private static string NormalizeLookupToken(string raw) => raw.Trim();
+
+    private string ResolveUnitId(string raw)
     {
-        Mission  = Mission,
-        World    = World,
-        Time     = GameTime,
-        Groups   = new Dictionary<string, Group>(_groups),
-        Units    = new Dictionary<string, Unit>(_units),
-        Vehicles = new Dictionary<string, Vehicle>(_vehicles),
-    };
+        var token = NormalizeLookupToken(raw);
+        if (string.IsNullOrWhiteSpace(token)) return "";
+
+        if (_units.ContainsKey(token)) return token;
+
+        // Backward compatibility: older SQF sent names in killed events.
+        foreach (var unit in _units.Values)
+        {
+            if (string.Equals(unit.Name, token, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(unit.PlayerName, token, StringComparison.OrdinalIgnoreCase))
+            {
+                return unit.Id;
+            }
+        }
+
+        return "";
+    }
+
+    private string ResolveUnitDisplayName(string raw, string resolvedUnitId)
+    {
+        if (!string.IsNullOrWhiteSpace(resolvedUnitId) && _units.TryGetValue(resolvedUnitId, out var resolved))
+        {
+            return string.IsNullOrWhiteSpace(resolved.PlayerName) ? resolved.Name : resolved.PlayerName;
+        }
+
+        return NormalizeLookupToken(raw);
+    }
+
+    private GameFrame BuildFrame()
+    {
+        // Filter out dead units and build group/waypoint state accounting for deaths
+        var liveUnits = new Dictionary<string, Unit>();
+        var liveVehicles = new Dictionary<string, Vehicle>();
+
+        // Copy over live units (not in dead units list)
+        lock (_deadUnitsLock)
+        {
+            foreach (var kvp in _units)
+            {
+                if (!_deadUnits.Contains(kvp.Key))
+                {
+                    liveUnits[kvp.Key] = kvp.Value;
+                }
+            }
+        }
+
+        var vehicleIdsWithLiveOccupants = new HashSet<string>(
+            liveUnits.Values
+                .Select(u => u.VehicleId)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+        );
+
+        // Copy live vehicles (those whose crew still has living members)
+        foreach (var kvp in _vehicles)
+        {
+            var veh = kvp.Value;
+            bool hasLiveCrewFromUnits = vehicleIdsWithLiveOccupants.Contains(veh.Id);
+            bool hasLiveCrewFromCrewList = veh.Crew.Count > 0 && veh.Crew.Any(cm => liveUnits.ContainsKey(cm.UnitId));
+            bool hasLiveCrew = hasLiveCrewFromUnits || hasLiveCrewFromCrewList;
+            if (hasLiveCrew)
+            {
+                liveVehicles[kvp.Key] = veh;
+            }
+        }
+
+        // Build groups, clearing waypoints for groups with no living members
+        var liveGroups = new Dictionary<string, Group>();
+        foreach (var kvp in _groups)
+        {
+            var grp = new Group
+            {
+                Id = kvp.Value.Id,
+                LeaderId = kvp.Value.LeaderId,
+                Name = kvp.Value.Name,
+                WpX = kvp.Value.WpX,
+                WpY = kvp.Value.WpY,
+                WpType = kvp.Value.WpType
+            };
+
+            // Check if this group has any living members
+            bool hasLiveMembers = liveUnits.Values.Any(u => u.GroupId == grp.Id);
+            
+            // Clear waypoint if all group members are dead
+            if (!hasLiveMembers)
+            {
+                grp.WpX = 0;
+                grp.WpY = 0;
+                grp.WpType = "";
+            }
+
+            liveGroups[kvp.Key] = grp;
+        }
+
+        var liveLazes = _lazes.Values
+            .Where(l => liveUnits.ContainsKey(l.UnitId))
+            .Select(l => new ActiveLaze { UnitId = l.UnitId, PosX = l.PosX, PosY = l.PosY })
+            .ToList();
+
+        return new GameFrame
+        {
+            Mission  = Mission,
+            World    = World,
+            Time     = GameTime,
+            Groups   = liveGroups,
+            Units    = liveUnits,
+            Vehicles = liveVehicles,
+            Lazes    = liveLazes,
+        };
+    }
 
     public GameFrame GetCurrentFrame() => BuildFrame();
 
@@ -559,12 +864,15 @@ public class GameStateService
         var cachedRoads     = _cache.LoadRoads(lastWorld);
         var cachedForests   = _cache.LoadForests(lastWorld);
         var cachedLocations = _cache.LoadLocations(lastWorld);
+        bool hasTrees = _cache.HasTreesCache(lastWorld);
+        var cachedTrees = hasTrees ? _cache.LoadTrees(lastWorld) : [];
         var cachedStructures = _cache.HasStructuresCache(lastWorld) ? _cache.LoadStructures(lastWorld) : [];
         var cachedElevations = _cache.HasElevationsCache(lastWorld) ? _cache.LoadElevations(lastWorld) : new ElevationsData();
 
         lock (_geoLock)
         {
             _roads.AddRange(cachedRoads);
+            _trees.AddRange(cachedTrees);
             _forests.AddRange(cachedForests.Cells);
             _locations.AddRange(cachedLocations);
             _structures.AddRange(cachedStructures);
@@ -580,6 +888,7 @@ public class GameStateService
             {
                 Phase            = "cached",
                 RoadCount        = cachedRoads.Count,      RoadsComplete      = true,
+                TreeCount        = cachedTrees.Count,      TreesComplete      = hasTrees,
                 ForestCount      = cachedForests.Cells.Count, ForestsComplete = true,
                 LocationCount    = cachedLocations.Count,  LocationsComplete  = true,
                 StructureCount   = cachedStructures.Count, StructuresComplete = cachedStructures.Count > 0,
@@ -587,7 +896,7 @@ public class GameStateService
             };
         }
 
-        _log.LogInformation("Loaded cached world '{World}' (size={Size}): {Roads} roads, {Forests} forests, {Locations} locations, {Structures} structures, {Elevations} elevations",
-            lastWorld, worldSize, cachedRoads.Count, cachedForests.Cells.Count, cachedLocations.Count, cachedStructures.Count, cachedElevations.Cells.Count);
+        _log.LogInformation("Loaded cached world '{World}' (size={Size}): {Roads} roads, {Trees} trees, {Forests} forests, {Locations} locations, {Structures} structures, {Elevations} elevations",
+            lastWorld, worldSize, cachedRoads.Count, cachedTrees.Count, cachedForests.Cells.Count, cachedLocations.Count, cachedStructures.Count, cachedElevations.Cells.Count);
     }
 }

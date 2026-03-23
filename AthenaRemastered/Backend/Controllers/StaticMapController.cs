@@ -11,7 +11,7 @@ namespace AthenaRemastered.Server.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/staticmap")]
-public class StaticMapController(StaticAthenaCacheService cache) : ControllerBase
+public class StaticMapController(StaticAthenaCacheService cache, GameStateService state) : ControllerBase
 {
     /// GET /api/staticmap/{worldName}
     /// Returns metadata: cellSize, worldSize, min/max elevation, available Z levels.
@@ -47,8 +47,17 @@ public class StaticMapController(StaticAthenaCacheService cache) : ControllerBas
     public async Task<IActionResult> GetTrees(string worldName)
     {
         var trees = await cache.GetTreesAsync(worldName);
-        if (trees == null) return NotFound(new { error = $"No trees data for '{worldName}'" });
-        return Ok(trees);
+        if (trees != null) return Ok(trees);
+
+        // Fallback: use runtime exported tree points from Arma when no Athena Desktop Trees.txt exists.
+        if (!string.Equals(state.World?.NameWorld, worldName, StringComparison.OrdinalIgnoreCase))
+            return NotFound(new { error = $"No trees data for '{worldName}'" });
+
+        var runtimeTrees = state.GetTrees();
+        if (runtimeTrees.Count == 0) return NotFound(new { error = $"No trees data for '{worldName}'" });
+
+        var rows = runtimeTrees.Select(t => new[] { t.X, t.Y }).ToArray();
+        return Ok(rows);
     }
 
     /// GET /api/staticmap/{worldName}/landmask?gridSize=128

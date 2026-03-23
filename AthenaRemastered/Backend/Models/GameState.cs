@@ -101,7 +101,32 @@ public class FiredEvent
     public string Ammo       { get; set; } = "";
     public string Magazine   { get; set; } = "";
     public string Projectile { get; set; } = "";
+    public double? TargetX   { get; set; }
+    public double? TargetY   { get; set; }
+    public string TargetSource   { get; set; } = "";
+    public string TargetEntityId { get; set; } = "";
+    public bool   TargetAmbiguous { get; set; }
+    public double FireDir        { get; set; }
     public DateTime At       { get; set; } = DateTime.UtcNow;
+}
+
+public class ActiveLaze
+{
+    public string UnitId { get; set; } = "";
+    public double PosX   { get; set; }
+    public double PosY   { get; set; }
+}
+
+public class FiredImpactEvent
+{
+    public string UnitId       { get; set; } = "";
+    public string VehicleId    { get; set; } = "";
+    public string Weapon       { get; set; } = "";
+    public string Muzzle       { get; set; } = "";
+    public double ImpactX      { get; set; }
+    public double ImpactY      { get; set; }
+    public double TimeOfFlight { get; set; }
+    public DateTime At         { get; set; } = DateTime.UtcNow;
 }
 
 public class KilledEvent
@@ -245,6 +270,7 @@ public class GameFrame
     public Dictionary<string, Group>         Groups   { get; set; } = [];
     public Dictionary<string, Unit>          Units    { get; set; } = [];
     public Dictionary<string, Vehicle>       Vehicles { get; set; } = [];
+    public List<ActiveLaze>                 Lazes    { get; set; } = [];
     public List<FiredEvent>                  Fired    { get; set; } = [];
     public List<KilledEvent>                 Killed   { get; set; } = [];
 }
@@ -253,9 +279,9 @@ public class GameFrame
 
 public class ServerSettings
 {
-    public bool ShowEast     { get; set; } = false;
-    public bool ShowGuer     { get; set; } = false;
-    public bool ShowCiv      { get; set; } = false;
+    public bool ShowEast     { get; set; } = true;
+    public bool ShowGuer     { get; set; } = true;
+    public bool ShowCiv      { get; set; } = true;
 }
 
 // ── Export status (tracks ongoing world-data export progress) ─────────────────
@@ -265,6 +291,8 @@ public class ExportStatus
     public string Phase              { get; set; } = "idle";  // idle | exporting | cached | complete
     public int    RoadCount          { get; set; }
     public bool   RoadsComplete      { get; set; }
+    public int    TreeCount          { get; set; }
+    public bool   TreesComplete      { get; set; }
     public int    ForestCount        { get; set; }
     public bool   ForestsComplete    { get; set; }
     public int    LocationCount      { get; set; }

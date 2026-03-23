@@ -25,6 +25,7 @@ public class MapCacheService
     {
         var dir = CacheDir(worldName);
         return File.Exists(Path.Combine(dir, "roads.json"))
+            && File.Exists(Path.Combine(dir, "trees.json"))
             && File.Exists(Path.Combine(dir, "forests.json"))
             && File.Exists(Path.Combine(dir, "locations.json"));
     }
@@ -34,6 +35,9 @@ public class MapCacheService
 
     public bool HasElevationsCache(string worldName)
         => File.Exists(Path.Combine(CacheDir(worldName), "elevations.json"));
+
+    public bool HasTreesCache(string worldName)
+        => File.Exists(Path.Combine(CacheDir(worldName), "trees.json"));
 
     // ── Load ─────────────────────────────────────────────────────────────────
 
@@ -52,6 +56,31 @@ public class MapCacheService
     public ElevationsData LoadElevations(string worldName)
         => Load<ElevationsData>(worldName, "elevations.json") ?? new ElevationsData();
 
+    public List<TreePoint> LoadTrees(string worldName)
+        => Load<List<TreePoint>>(worldName, "trees.json") ?? [];
+
+    // ── Clear ────────────────────────────────────────────────────────────────
+
+    public void ClearWorldCache(string worldName)
+    {
+        var dir = CacheDir(worldName);
+        if (!Directory.Exists(dir)) return;
+        try
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+        catch
+        {
+            // Best-effort: if files are temporarily locked, remove known cache files.
+            TryDelete(Path.Combine(dir, "roads.json"));
+            TryDelete(Path.Combine(dir, "forests.json"));
+            TryDelete(Path.Combine(dir, "locations.json"));
+            TryDelete(Path.Combine(dir, "structures.json"));
+            TryDelete(Path.Combine(dir, "elevations.json"));
+            TryDelete(Path.Combine(dir, "trees.json"));
+        }
+    }
+
     // ── Save ─────────────────────────────────────────────────────────────────
 
     public void SaveRoads(string worldName, List<Road> roads)
@@ -68,6 +97,9 @@ public class MapCacheService
 
     public void SaveElevations(string worldName, ElevationsData elevations)
         => Save(worldName, "elevations.json", elevations);
+
+    public void SaveTrees(string worldName, List<TreePoint> trees)
+        => Save(worldName, "trees.json", trees);
 
     // ── Last-world persistence ───────────────────────────────────────────
 
@@ -116,5 +148,11 @@ public class MapCacheService
         Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(data, JsonOpts);
         File.WriteAllText(Path.Combine(dir, fileName), json);
+    }
+
+    private static void TryDelete(string path)
+    {
+        if (!File.Exists(path)) return;
+        try { File.Delete(path); } catch { }
     }
 }

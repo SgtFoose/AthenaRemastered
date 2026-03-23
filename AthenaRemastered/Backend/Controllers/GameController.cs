@@ -32,8 +32,13 @@ public class GameController : ControllerBase
     {
         try
         {
+            if (string.Equals(dto.Fn, "fired", StringComparison.OrdinalIgnoreCase))
+            {
+                _log.LogWarning("FIRED PUT received args={ArgCount}", dto.Args?.Count ?? 0);
+            }
+
             _log.LogInformation("PUT fn={Fn} args={ArgCount}", dto.Fn, dto.Args?.Count ?? 0);
-            HandlePut(dto.Fn, dto.Args);
+            HandlePut(dto.Fn, dto.Args ?? []);
             return Ok();
         }
         catch (Exception ex)
@@ -92,7 +97,7 @@ public class GameController : ControllerBase
             }
 
             case "updateunit":
-                _state.PutUpdateUnit(S(0), S(1), S(2), D(3), D(4), D(5), D(6), D(7));
+                _state.PutUpdateUnit(S(0), S(1), S(2), D(3), D(4), D(5), D(6), D(7), D(8), D(9), B(10));
                 break;
 
             case "updatevehicle":
@@ -104,7 +109,11 @@ public class GameController : ControllerBase
                 break;
 
             case "fired":
-                _state.PutFired(S(0), S(1), S(2), S(3), S(4), S(5), S(6), S(7));
+                _state.PutFired(S(0), S(1), S(2), S(3), S(4), S(5), S(6), S(7), D(8), D(9), S(10), S(11), B(12), D(13));
+                break;
+
+            case "fired_impact":
+                _state.PutFiredImpact(S(0), S(1), S(2), S(3), D(4), D(5), D(6));
                 break;
 
             case "killed":
@@ -131,6 +140,20 @@ public class GameController : ControllerBase
 
             case "roadscomplete":
                 _state.PutRoadsComplete();
+                break;
+
+            case "tree":
+                // args: index, x, y, model
+                _state.PutTreePoint(x: D(1), y: D(2), model: S(3));
+                break;
+
+            case "treebatch":
+                // args: index, batchString  ("x1,y1;x2,y2;...")
+                _state.PutTreeBatch(S(1));
+                break;
+
+            case "treescomplete":
+                _state.PutTreesComplete();
                 break;
 
             case "forest":
@@ -177,9 +200,9 @@ public class GameController : ControllerBase
             case "structure":
                 // args: index, id, model, modelPath, type, posX, posY, posZ, dir, w, l, h, bp[]
                 _state.PutStructure(
-                    id:     S(2), type: S(5), model: S(3),
-                    posX:   D(6), posY: D(7), dir:  D(9),
-                    width:  D(10), length: D(11), height: D(12));
+                    id:     S(1), type: S(4), model: S(2),
+                    posX:   D(5), posY: D(6), dir:  D(8),
+                    width:  D(9), length: D(10), height: D(11));
                 break;
 
             case "structurescomplete":
@@ -189,12 +212,15 @@ public class GameController : ControllerBase
             // Server admin settings (sent from Arma mission params via DLL)
             case "settings":
                 // args: showEast, showGuer, showCiv
-                _state.UpdateSettings(new ServerSettings
+                var settings = new ServerSettings
                 {
                     ShowEast = B(0),
                     ShowGuer = B(1),
                     ShowCiv  = B(2),
-                });
+                };
+                _log.LogInformation("Server settings updated: east={East} guer={Guer} civ={Civ}",
+                    settings.ShowEast, settings.ShowGuer, settings.ShowCiv);
+                _state.UpdateSettings(settings);
                 break;
 
             default:
@@ -275,6 +301,13 @@ public class GameController : ControllerBase
         return forests.Cells.Count > 0 ? Ok(forests) : NoContent();
     }
 
+    [HttpGet("trees")]
+    public IActionResult GetTrees()
+    {
+        var trees = _state.GetTrees();
+        return trees.Count > 0 ? Ok(trees) : NoContent();
+    }
+
     [HttpGet("locations")]
     public IActionResult GetLocations()
     {
@@ -303,6 +336,7 @@ public class GameController : ControllerBase
     [HttpGet("debug")]
     public IActionResult GetDebug() => Ok(new {
         roadCount      = _state.GetRoads().Count,
+        treeCount      = _state.GetTrees().Count,
         forestCount    = _state.GetForests().Cells.Count,
         locationCount  = _state.GetLocations().Count,
         elevationCount = _state.GetElevations().Cells.Count,

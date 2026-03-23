@@ -141,6 +141,12 @@ export interface Vehicle {
   speed: number;
 }
 
+export interface ActiveLaze {
+  unitId: string;
+  posX: number;
+  posY: number;
+}
+
 export interface FiredEvent {
   unitId: string;
   vehicleId: string;
@@ -150,6 +156,12 @@ export interface FiredEvent {
   ammo: string;
   magazine: string;
   projectile: string;
+  targetX?: number | null;
+  targetY?: number | null;
+  targetSource?: string;
+  targetEntityId?: string;
+  targetAmbiguous?: boolean;
+  fireDir?: number;
   at: string;
 }
 
@@ -160,6 +172,17 @@ export interface KilledEvent {
   at: string;
 }
 
+export interface FiredImpactEvent {
+  unitId: string;
+  vehicleId: string;
+  weapon: string;
+  muzzle: string;
+  impactX: number;
+  impactY: number;
+  timeOfFlight: number;
+  at: string;
+}
+
 export interface GameFrame {
   mission: Mission | null;
   world: WorldInfo | null;
@@ -167,6 +190,7 @@ export interface GameFrame {
   groups: Record<string, Group>;
   units: Record<string, Unit>;
   vehicles: Record<string, Vehicle>;
+  lazes: ActiveLaze[];
   fired: FiredEvent[];
   killed: KilledEvent[];
 }
@@ -185,6 +209,8 @@ export interface ExportStatus {
   phase:              string;  // idle | exporting | cached | complete
   roadCount:          number;
   roadsComplete:      boolean;
+  treeCount:          number;
+  treesComplete:      boolean;
   forestCount:        number;
   forestsComplete:    boolean;
   locationCount:      number;

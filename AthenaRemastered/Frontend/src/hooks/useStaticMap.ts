@@ -17,22 +17,21 @@ const API = `${API_BASE}/api/staticmap`;
  * Convert to Leaflet LatLng: lat = y * scale, lng = x * scale.
  */
 export function useStaticMap(worldName: string | null) {
-  const [staticInfo, setStaticInfo] = useState<StaticWorldInfo | null>(null);
-  const [contours,   setContours]   = useState<ContourLine[]>([]);
+  const [staticInfoState, setStaticInfoState] = useState<{ worldName: string; data: StaticWorldInfo } | null>(null);
+  const [contoursState, setContoursState] = useState<{ worldName: string; data: ContourLine[] } | null>(null);
 
   // Fetch world metadata whenever the active world changes
   useEffect(() => {
-    if (!worldName) { setStaticInfo(null); setContours([]); return; }
-
-    // Clear stale data from the previous world immediately so the land layer
-    // never renders old contours in the new world's coordinate space.
-    setStaticInfo(null);
-    setContours([]);
+    if (!worldName) return;
 
     let cancelled = false;
     fetch(`${API}/${encodeURIComponent(worldName)}`)
       .then(r => (r.ok ? r.json() : null))
-      .then((data: StaticWorldInfo | null) => { if (!cancelled && data) setStaticInfo(data); })
+      .then((data: StaticWorldInfo | null) => {
+        if (!cancelled && data) {
+          setStaticInfoState({ worldName, data });
+        }
+      })
       .catch(() => {});
 
     return () => { cancelled = true; };
@@ -40,10 +39,10 @@ export function useStaticMap(worldName: string | null) {
 
   // Once we have metadata, fetch major contour levels in parallel
   useEffect(() => {
-    if (!staticInfo) { setContours([]); return; }
+    if (!worldName || !staticInfoState || staticInfoState.worldName !== worldName) return;
 
     let cancelled = false;
-    setContours([]);
+    const { data: staticInfo } = staticInfoState;
 
     // Major = sea level + every 20 m (index contours every 100 m are a subset)
     const majorZ = staticInfo.availableZ.filter(z => z === 0 || z % 20 === 0);
@@ -55,12 +54,23 @@ export function useStaticMap(worldName: string | null) {
           .catch(() => null),
       ),
     ).then(results => {
-      if (!cancelled)
-        setContours(results.filter((r): r is ContourLine => r !== null));
+      if (!cancelled) {
+        setContoursState({
+          worldName,
+          data: results.filter((r): r is ContourLine => r !== null),
+        });
+      }
     });
 
     return () => { cancelled = true; };
-  }, [staticInfo]);
+  }, [staticInfoState, worldName]);
+
+  const staticInfo = worldName && staticInfoState?.worldName === worldName
+    ? staticInfoState.data
+    : null;
+  const contours = worldName && contoursState?.worldName === worldName
+    ? contoursState.data
+    : [];
 
   return { staticInfo, contours };
 }

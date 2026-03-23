@@ -1,4 +1,4 @@
-import { Component, useState, useRef } from 'react'
+import { Component, useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { AthenaMap }   from './components/AthenaMap'
 import { Sidebar }     from './components/Sidebar'
@@ -13,10 +13,15 @@ export type RenderMode = '2d' | 'heatmap1' | 'heatmap2'
 
 export interface LayerVisibility {
   contours:   boolean
+  forest:     boolean
+  trees:      boolean
   roads:      boolean
+  structures: boolean
   locations:  boolean
   groups:     boolean
   waypoints:  boolean
+  lazes:      boolean
+  projectiles:boolean
   vehicles:   boolean
   units:      boolean
 }
@@ -67,38 +72,103 @@ class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundary
 }
 
 function App() {
-  const { connected, frame, recentKills, recentFired, worldInfo, roads, forests, locations, structures, elevations, serverSettings, exportStatus, requestWorldExport } = useAthenHub()
+  const { connected, frame, recentKills, recentFired, recentFiredImpacts, worldInfo, roads, forests, locations, structures, elevations, serverSettings, exportStatus, requestWorldExport } = useAthenHub()
 
   const units    = frame?.units    ?? {}
   const vehicles = frame?.vehicles ?? {}
   const groups   = frame?.groups   ?? {}
-  const world     = worldInfo?.nameWorld ?? frame?.world?.nameWorld ?? frame?.mission?.world ?? ''
+  const lazes    = frame?.lazes    ?? []
+  const liveWorld = frame?.world?.nameWorld ?? frame?.mission?.world ?? ''
+  const world     = liveWorld || worldInfo?.nameWorld || ''
 
   // Load pre-computed Athena Desktop cache (contour lines + metadata) for the active world
   const { staticInfo, contours } = useStaticMap(world || null)
 
   // worldSize: prefer live SignalR data, fall back to static Athena Desktop cache, then default
-  const worldSize = worldInfo?.size ?? frame?.world?.size ?? staticInfo?.worldSize ?? 10240
+  const worldSize = frame?.world?.size ?? worldInfo?.size ?? staticInfo?.worldSize ?? 10240
 
   // Load Athena Desktop vehicle/location classification library
   const { vehicleMap, locationMap } = useAthenaLibrary()
 
   const [layers, setLayers] = useState<LayerVisibility>({
     contours:   true,
+    forest:     true,
+    trees:      true,
     roads:      true,
+    structures: true,
     locations:  true,
     groups:     true,
     waypoints:  true,
+    lazes:      true,
+    projectiles:true,
     vehicles:   false,
     units:      false,
   })
   const [renderMode, setRenderMode] = useState<RenderMode>('2d')
+  const [followActivePlayer, setFollowActivePlayer] = useState(false)
+  const [mapSessionKey, setMapSessionKey] = useState(0)
+  const previousWorldRef = useRef('')
+  const previousConnectedRef = useRef(false)
 
   const toggleLayer = (key: keyof LayerVisibility) =>
     setLayers(prev => ({ ...prev, [key]: !prev[key] }))
 
   // Map focus callback — allows sidebar to pan the map to a world coordinate
   const mapFocusRef = useRef<(posX: number, posY: number) => void>(() => {})
+  const mapPanRef = useRef<(posX: number, posY: number) => void>(() => {})
+  const lastFollowPosRef = useRef<{ x: number; y: number } | null>(null)
+
+  const activePlayerAnchor = useMemo(() => {
+    const missionPlayer = frame?.mission?.player?.trim().toLowerCase() ?? ''
+    const unitList = Object.values(units)
+    const primary = missionPlayer
+      ? unitList.find(u => u.playerName?.trim().toLowerCase() === missionPlayer)
+      : undefined
+    const fallback = primary ?? unitList.find(u => u.playerName?.trim())
+    if (!fallback) return null
+
+    const veh = fallback.vehicleId ? vehicles[fallback.vehicleId] : undefined
+    return {
+      name: fallback.playerName?.trim() || fallback.name || 'Active Player',
+      x: veh?.posX ?? fallback.posX,
+      y: veh?.posY ?? fallback.posY,
+    }
+  }, [frame?.mission?.player, units, vehicles])
+
+  useEffect(() => {
+    if (!followActivePlayer || !activePlayerAnchor) return
+    const last = lastFollowPosRef.current
+    const dx = (last?.x ?? Number.NaN) - activePlayerAnchor.x
+    const dy = (last?.y ?? Number.NaN) - activePlayerAnchor.y
+    const moved = !Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) >= 2.5
+    if (!moved) return
+    lastFollowPosRef.current = { x: activePlayerAnchor.x, y: activePlayerAnchor.y }
+    mapPanRef.current(activePlayerAnchor.x, activePlayerAnchor.y)
+  }, [followActivePlayer, activePlayerAnchor])
+
+  useEffect(() => {
+    if (!followActivePlayer) {
+      lastFollowPosRef.current = null
+    }
+  }, [followActivePlayer])
+
+  const handleRequestWorld = useCallback(() => {
+    setMapSessionKey(prev => prev + 1)
+    requestWorldExport('world')
+  }, [requestWorldExport])
+
+  useEffect(() => {
+    const worldKey = world || ''
+    const justConnected = connected && !previousConnectedRef.current
+    const worldChanged = worldKey !== previousWorldRef.current
+
+    if ((justConnected && worldKey) || (worldKey && worldChanged)) {
+      setMapSessionKey(prev => prev + 1)
+    }
+
+    previousConnectedRef.current = connected
+    previousWorldRef.current = worldKey
+  }, [connected, world])
 
   return (
     <div className="app-shell">
@@ -119,21 +189,24 @@ function App() {
         <Sidebar
           frame={frame}
           connected={connected}
-          onRequestWorld={() => requestWorldExport('world')}
+          onRequestWorld={handleRequestWorld}
           roadCount={roads.length}
+          treeCount={exportStatus.treeCount}
           forestCellCount={forests?.cells.length ?? 0}
           locationCount={locations.length}
           structureCount={structures.length}
           elevationCellCount={elevations?.cells.length ?? 0}
           layers={layers}
           onToggleLayer={toggleLayer}
+          followActivePlayer={followActivePlayer}
+          activePlayerName={activePlayerAnchor?.name ?? null}
+          onToggleFollowActivePlayer={() => setFollowActivePlayer(prev => !prev)}
           renderMode={renderMode}
           onChangeRenderMode={setRenderMode}
           serverSettings={serverSettings}
           locations={locations}
           groups={groups}
           units={units}
-          worldSize={worldSize}
           onFocusPosition={(posX, posY) => mapFocusRef.current(posX, posY)}
         />
       </aside>
@@ -159,6 +232,7 @@ function App() {
                 <div className="welcome-export-progress">
                   {[
                     { label: 'Roads',      count: exportStatus.roadCount,      done: exportStatus.roadsComplete },
+                    { label: 'Trees',      count: exportStatus.treeCount,      done: exportStatus.treesComplete },
                     { label: 'Forests',    count: exportStatus.forestCount,    done: exportStatus.forestsComplete },
                     { label: 'Locations',  count: exportStatus.locationCount,  done: exportStatus.locationsComplete },
                     { label: 'Structures', count: exportStatus.structureCount, done: exportStatus.structuresComplete },
@@ -182,9 +256,13 @@ function App() {
         )}
         <MapErrorBoundary>
           <AthenaMap
+            key={`${world || 'noworld'}:${worldSize}:${mapSessionKey}`}
             units={units}
             vehicles={vehicles}
             groups={groups}
+            lazes={lazes}
+            firedEvents={recentFired}
+            firedImpacts={recentFiredImpacts}
             worldSize={worldSize}
             world={world}
             roads={roads}
@@ -199,6 +277,7 @@ function App() {
             onLayersChange={setLayers}
             renderMode={renderMode}
             onRegisterFocus={(fn) => { mapFocusRef.current = fn }}
+            onRegisterPan={(fn) => { mapPanRef.current = fn }}
           />
         </MapErrorBoundary>
         {exportStatus.phase !== 'idle' && (
@@ -211,6 +290,11 @@ function App() {
             <div className="export-status-row">
               <span className={exportStatus.roadsComplete ? 'done' : 'pending'}>
                 Roads: {exportStatus.roadCount}{exportStatus.roadsComplete ? ' ✓' : '…'}
+              </span>
+            </div>
+            <div className="export-status-row">
+              <span className={exportStatus.treesComplete ? 'done' : 'pending'}>
+                Trees: {exportStatus.treeCount}{exportStatus.treesComplete ? ' ✓' : '…'}
               </span>
             </div>
             <div className="export-status-row">

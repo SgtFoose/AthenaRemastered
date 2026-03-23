@@ -52,6 +52,12 @@ public class AthenaHub : Hub
     // Frontend calls this to queue a request back into Arma via the extension
     public Task RequestWorldExport(string command, string client, List<object> data)
     {
+        if (string.Equals(command, "world", StringComparison.OrdinalIgnoreCase))
+        {
+            _state.RequestWorldReexport();
+            return Task.CompletedTask;
+        }
+
         _state.EnqueueRequest(new ExtensionRequest
         {
             Command = command,

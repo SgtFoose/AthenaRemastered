@@ -22,7 +22,8 @@ public class BroadcastService : IHostedService
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _state.OnFrame             += frame   => _hub.Clients.All.SendAsync("Frame",     frame);
-        _state.OnFired             += e       => _hub.Clients.All.SendAsync("Fired",     e);
+        _state.OnFired             += e       => _hub.Clients.All.SendAsync("Fired",       e);
+        _state.OnFiredImpact       += e       => _hub.Clients.All.SendAsync("FiredImpact",  e);
         _state.OnKilled            += e       => _hub.Clients.All.SendAsync("Killed",    e);
         _state.OnWorldInfo         += wi      => _hub.Clients.All.SendAsync("WorldInfo",  wi);
         _state.OnRoadsComplete     += roads      => _hub.Clients.All.SendAsync("Roads",      roads);

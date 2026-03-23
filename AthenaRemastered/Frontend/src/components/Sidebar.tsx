@@ -5,11 +5,8 @@ import { APP_VERSION } from '../version';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Convert world X/Y to a 4-digit grid reference (e.g. "0312") */
-function toGrid(posX: number, posY: number, worldSize: number): string {
-  const gx = Math.floor((posX / worldSize) * 100).toString().padStart(2, '0');
-  const gy = Math.floor((posY / worldSize) * 100).toString().padStart(2, '0');
-  return `${gx}${gy}`;
+function formatXY(posX: number, posY: number): string {
+  return `X:${posX.toFixed(2)} Y:${posY.toFixed(2)}`;
 }
 
 function sideColor(side: string): string {
@@ -17,7 +14,7 @@ function sideColor(side: string): string {
     case 'west':     return '#4e9de0';
     case 'east':     return '#d93b3b';
     case 'guer':     return '#4ec94e';
-    case 'civilian': return '#9b59b6';
+    case 'civ':      return '#9b59b6';
     default:         return '#888';
   }
 }
@@ -53,19 +50,22 @@ interface Props {
   connected: boolean;
   onRequestWorld: () => void;
   roadCount: number;
+  treeCount: number;
   forestCellCount: number;
   locationCount: number;
   structureCount: number;
   elevationCellCount: number;
   layers: LayerVisibility;
   onToggleLayer: (key: keyof LayerVisibility) => void;
+  followActivePlayer: boolean;
+  activePlayerName: string | null;
+  onToggleFollowActivePlayer: () => void;
   renderMode: RenderMode;
   onChangeRenderMode: (m: RenderMode) => void;
   serverSettings: ServerSettings;
   locations: MapLocation[];
   groups: Record<string, Group>;
   units: Record<string, Unit>;
-  worldSize: number;
   onFocusPosition: (posX: number, posY: number) => void;
 }
 
@@ -77,9 +77,9 @@ type OrbatSide = 'WEST' | 'EAST' | 'GUER' | 'CIV';
 
 export function Sidebar({
   frame, connected, onRequestWorld,
-  roadCount, forestCellCount, locationCount, structureCount, elevationCellCount,
-  layers, onToggleLayer, renderMode, onChangeRenderMode,
-  serverSettings, locations, groups, units, worldSize, onFocusPosition,
+  roadCount, treeCount, forestCellCount, locationCount, structureCount, elevationCellCount,
+  layers, onToggleLayer, followActivePlayer, activePlayerName, onToggleFollowActivePlayer, renderMode, onChangeRenderMode,
+  serverSettings, locations, groups, units, onFocusPosition,
 }: Props) {
   const [topTab, setTopTab]       = useState<TopTab>('MAP');
   const [mapSub, setMapSub]       = useState<MapSubTab>('COMMON');
@@ -97,7 +97,7 @@ export function Sidebar({
   const groupCount = frame ? Object.keys(frame.groups).length : 0;
 
   // Groups filtered by currently selected ORBAT side
-  const sideKey = orbatSide === 'CIV' ? 'civilian' : orbatSide.toLowerCase();
+  const sideKey = orbatSide.toLowerCase();
   const sideGroups = useMemo(() => {
     const unitList = Object.values(units);
     // Map groupId → side from the group's leader unit
@@ -177,15 +177,18 @@ export function Sidebar({
 
             {mapSub === 'COMMON' && <CommonPanel
               layers={layers} onToggleLayer={onToggleLayer}
+              followActivePlayer={followActivePlayer}
+              activePlayerName={activePlayerName}
+              onToggleFollowActivePlayer={onToggleFollowActivePlayer}
               renderMode={renderMode} onChangeRenderMode={onChangeRenderMode}
               onRequestWorld={onRequestWorld} connected={connected}
-              roadCount={roadCount} forestCellCount={forestCellCount}
+              roadCount={roadCount} treeCount={treeCount} forestCellCount={forestCellCount}
               locationCount={locationCount} structureCount={structureCount}
               elevationCellCount={elevationCellCount}
             />}
 
             {mapSub === 'LOCATIONS' && <LocationsPanel
-              locations={sortedLocations} worldSize={worldSize} onFocusPosition={onFocusPosition}
+              locations={sortedLocations} onFocusPosition={onFocusPosition}
             />}
           </>
         )}
@@ -205,10 +208,10 @@ export function Sidebar({
                     style={{
                       ...tabStyle(orbatSide === side),
                       color: orbatSide === side
-                        ? sideColor(side === 'CIV' ? 'civilian' : side)
+                        ? sideColor(side === 'CIV' ? 'civ' : side)
                         : disabled ? '#333' : '#555',
                       borderBottomColor: orbatSide === side
-                        ? sideColor(side === 'CIV' ? 'civilian' : side)
+                        ? sideColor(side === 'CIV' ? 'civ' : side)
                         : 'transparent',
                       cursor: disabled ? 'not-allowed' : 'pointer',
                       opacity: disabled ? 0.4 : 1,
@@ -223,7 +226,6 @@ export function Sidebar({
               side={orbatSide}
               groups={sideGroups}
               units={units}
-              worldSize={worldSize}
               onFocusPosition={onFocusPosition}
               serverSettings={serverSettings}
             />
@@ -242,14 +244,17 @@ export function Sidebar({
 // ── COMMON panel ─────────────────────────────────────────────────────────────
 
 function CommonPanel({
-  layers, onToggleLayer, renderMode, onChangeRenderMode,
+  layers, onToggleLayer, followActivePlayer, activePlayerName, onToggleFollowActivePlayer, renderMode, onChangeRenderMode,
   onRequestWorld, connected,
-  roadCount, forestCellCount, locationCount, structureCount, elevationCellCount,
+  roadCount, treeCount, forestCellCount, locationCount, structureCount, elevationCellCount,
 }: {
   layers: LayerVisibility; onToggleLayer: (key: keyof LayerVisibility) => void;
+  followActivePlayer: boolean;
+  activePlayerName: string | null;
+  onToggleFollowActivePlayer: () => void;
   renderMode: RenderMode; onChangeRenderMode: (m: RenderMode) => void;
   onRequestWorld: () => void; connected: boolean;
-  roadCount: number; forestCellCount: number; locationCount: number;
+  roadCount: number; treeCount: number; forestCellCount: number; locationCount: number;
   structureCount: number; elevationCellCount: number;
 }) {
   return (
@@ -282,10 +287,15 @@ function CommonPanel({
         <div style={sectionLabel}>MAP LAYERS</div>
         {([
           { key: 'contours',   label: 'Contours' },
+          { key: 'forest',     label: 'Forest Overlay' },
+          { key: 'trees',      label: 'Trees' },
           { key: 'roads',      label: 'Roads' },
+          { key: 'structures', label: 'Structures' },
           { key: 'locations',  label: 'Locations' },
           { key: 'groups',     label: 'Groups' },
           { key: 'waypoints',  label: 'Waypoints' },
+          { key: 'lazes',      label: 'Active Lazes' },
+          { key: 'projectiles',label: 'Projectile Tracking' },
           { key: 'vehicles',   label: 'Vehicles' },
           { key: 'units',      label: 'Units' },
         ] as { key: keyof LayerVisibility; label: string }[]).map(({ key, label }) => (
@@ -316,11 +326,26 @@ function CommonPanel({
         }}
       >Export World Data</button>
 
+      <button
+        onClick={onToggleFollowActivePlayer}
+        disabled={!activePlayerName}
+        style={{
+          background: !activePlayerName ? '#333' : followActivePlayer ? '#2ecc71' : '#1e2e1e',
+          color: !activePlayerName ? '#777' : followActivePlayer ? '#000' : '#ddd',
+          border: '1px solid #2ecc71', borderRadius: 6, padding: '8px 12px',
+          cursor: activePlayerName ? 'pointer' : 'not-allowed', fontSize: 13,
+        }}
+      >
+        {followActivePlayer ? 'Following Active Player' : 'Follow Active Player'}
+        {activePlayerName ? `: ${activePlayerName}` : ' (unavailable)'}
+      </button>
+
       {/* Geometry status */}
       <div style={{ ...panelStyle, background: '#1a1a2e' }}>
         <div style={sectionLabel}>MAP DATA</div>
         {[
           { label: 'Roads',      value: roadCount,          unit: 'segments' },
+          { label: 'Trees',      value: treeCount,          unit: 'points' },
           { label: 'Forest',     value: forestCellCount,    unit: 'cells' },
           { label: 'Locations',  value: locationCount,      unit: 'labels' },
           { label: 'Structures', value: structureCount,     unit: 'objects' },
@@ -341,9 +366,9 @@ function CommonPanel({
 // ── LOCATIONS panel ──────────────────────────────────────────────────────────
 
 function LocationsPanel({
-  locations, worldSize, onFocusPosition,
+  locations, onFocusPosition,
 }: {
-  locations: MapLocation[]; worldSize: number;
+  locations: MapLocation[];
   onFocusPosition: (posX: number, posY: number) => void;
 }) {
   if (locations.length === 0) {
@@ -364,7 +389,7 @@ function LocationsPanel({
         >
           <span style={{ color: '#ddd', fontWeight: 700, fontSize: 12 }}>{loc.name}</span>
           <span style={{ color: '#666', fontSize: 11, fontFamily: 'monospace' }}>
-            {toGrid(loc.posX, loc.posY, worldSize)}
+            {formatXY(loc.posX, loc.posY)}
           </span>
         </button>
       ))}
@@ -375,12 +400,11 @@ function LocationsPanel({
 // ── ORBAT panel ──────────────────────────────────────────────────────────────
 
 function OrbatPanel({
-  side, groups, units, worldSize, onFocusPosition, serverSettings,
+  side, groups, units, onFocusPosition, serverSettings,
 }: {
   side: OrbatSide;
   groups: Group[];
   units: Record<string, Unit>;
-  worldSize: number;
   onFocusPosition: (posX: number, posY: number) => void;
   serverSettings: ServerSettings;
 }) {
@@ -401,7 +425,7 @@ function OrbatPanel({
     return <div style={{ color: '#555', fontSize: 12 }}>No groups on this side.</div>;
   }
 
-  const color = sideColor(side === 'CIV' ? 'civilian' : side);
+  const color = sideColor(side === 'CIV' ? 'civ' : side);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -426,7 +450,7 @@ function OrbatPanel({
             >
               <span style={{ color, fontWeight: 700, fontSize: 12 }}>{g.name || g.id}</span>
               <span style={{ color: '#555', fontSize: 10, fontFamily: 'monospace' }}>
-                {toGrid(posX, posY, worldSize)} · {groupUnits.length}
+                {formatXY(posX, posY)} · {groupUnits.length}
               </span>
             </button>
             {/* Unit list */}
