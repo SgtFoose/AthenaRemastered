@@ -59,13 +59,27 @@ AthenaRemastered/publish-single/
 @AthenaRemastered/Exports/
 @AthenaRemastered/Mission/
 @AthenaRemastered/World/
-
-# Old mod folder (legacy)
-@Athena Web Remastered/
+AthenaRemastered/@AthenaRemastered/Events/
+AthenaRemastered/@AthenaRemastered/Exports/
+AthenaRemastered/@AthenaRemastered/Mission/
+AthenaRemastered/@AthenaRemastered/World/
 
 # Root @AthenaRemastered is the distribution/workshop copy — large binaries
 @AthenaRemastered/Server/
 @AthenaRemastered/addons/*.bisign
+AthenaRemastered/@AthenaRemastered/addons/*.bisign
+AthenaRemastered/@AthenaRemastered/Server/*.deps.json
+AthenaRemastered/@AthenaRemastered/Server/*.dll
+AthenaRemastered/@AthenaRemastered/Server/*.exe
+AthenaRemastered/@AthenaRemastered/Server/*.pdb
+AthenaRemastered/@AthenaRemastered/Server/*.runtimeconfig.json
+AthenaRemastered/@AthenaRemastered/Server/*.staticwebassets.endpoints.json
+AthenaRemastered/@AthenaRemastered/Server/appsettings*.json
+AthenaRemastered/@AthenaRemastered/Server/runtimes/
+AthenaRemastered/@AthenaRemastered/Server/web.config
+
+# Compatibility alias used locally to preserve older launch params
+AthenaRemastered/@Athena Web Remastered/
 
 # Debug screenshots
 objects-with-runways.png
