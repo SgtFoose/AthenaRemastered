@@ -55,6 +55,7 @@ public class Unit
     public string Team            { get; set; } = "";
     public string Type            { get; set; } = "";
     public string Rank            { get; set; } = "";
+    public bool   IsActivePlayer  { get; set; }
     public bool   HasMediKit      { get; set; }
     public string WeaponPrimary   { get; set; } = "";
     public string WeaponSecondary { get; set; } = "";

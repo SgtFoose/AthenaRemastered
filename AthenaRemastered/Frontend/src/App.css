@@ -83,7 +83,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
 /* -- Export status overlay (bottom-left of map) --------------------------- */
 .export-status-overlay {
   position: absolute;
-  bottom: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   left: 12px;
   z-index: 1000;
   background: rgba(13, 17, 23, 0.88);
@@ -95,6 +95,8 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
   color: #e6edf3;
   pointer-events: none;
   min-width: 160px;
+  max-height: calc(100% - 24px - env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
 }
 .export-status-title {
   font-weight: 700;
@@ -105,6 +107,29 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
 }
 .export-status-row {
   line-height: 1.6;
+}
+
+/* Keep export panel readable and fully visible on iPad/tablet-sized viewports */
+@media (max-width: 1200px), (max-height: 820px) {
+  .export-status-overlay {
+    left: 8px;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    padding: 6px 8px;
+    font-size: 10px;
+    min-width: 132px;
+    max-width: min(42vw, 200px);
+    max-height: calc(100% - 16px - env(safe-area-inset-bottom, 0px));
+  }
+
+  .export-status-title {
+    font-size: 10px;
+    margin-bottom: 3px;
+    letter-spacing: 0.35px;
+  }
+
+  .export-status-row {
+    line-height: 1.35;
+  }
 }
 .export-status-row .done {
   color: #2ecc71;

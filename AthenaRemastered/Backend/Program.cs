@@ -2,6 +2,11 @@ using AthenaRemastered.Server.Hubs;
 using AthenaRemastered.Server.Services;
 using System.Net;
 using System.Net.Sockets;
+using System.Text;
+
+var crashLogDir = Path.Combine(AppContext.BaseDirectory, "Logs");
+Directory.CreateDirectory(crashLogDir);
+RegisterGlobalCrashLogging(crashLogDir);
 
 try
 {
@@ -68,6 +73,8 @@ app.Lifetime.ApplicationStarted.Register(() =>
         }
         Console.WriteLine();
     }
+    Console.WriteLine();
+    Console.WriteLine($"  Crash logs:       {Path.Combine(crashLogDir, "AthenaRemastered.latest-crash.log")}");
     Console.WriteLine();
 
     // Auto-open the browser for convenience
@@ -168,6 +175,7 @@ string BuildUrl(Uri uri, string host)
 }
 catch (Exception ex)
 {
+    WriteCrashLog(crashLogDir, "Startup failure", ex);
     Console.ForegroundColor = ConsoleColor.Red;
     Console.Error.WriteLine();
     Console.Error.WriteLine("  ═══ ATHENA SERVER FAILED TO START ═══");
@@ -176,6 +184,8 @@ catch (Exception ex)
         Console.Error.WriteLine($"  Inner: {ex.InnerException.Message}");
     Console.ResetColor();
     Console.Error.WriteLine();
+    Console.Error.WriteLine($"  Crash log written to: {Path.Combine(crashLogDir, "AthenaRemastered.latest-crash.log")}");
+    Console.Error.WriteLine();
     Console.Error.WriteLine("  Common fixes:");
     Console.Error.WriteLine("   - Is another Athena server already running? (port 5000 conflict)");
     Console.Error.WriteLine("   - Try closing other instances and run again.");
@@ -183,4 +193,72 @@ catch (Exception ex)
     Console.Error.WriteLine("  Press Enter to exit ...");
     Console.ReadLine();
     Environment.Exit(1);
+}
+
+void RegisterGlobalCrashLogging(string logDir)
+{
+    AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
+    {
+        var exception = eventArgs.ExceptionObject as Exception;
+        var message = exception == null
+            ? $"Non-exception object: {eventArgs.ExceptionObject}"
+            : null;
+        WriteCrashLog(logDir, $"Unhandled exception (terminating={eventArgs.IsTerminating})", exception, message);
+    };
+
+    TaskScheduler.UnobservedTaskException += (_, eventArgs) =>
+    {
+        WriteCrashLog(logDir, "Unobserved task exception", eventArgs.Exception);
+    };
+}
+
+void WriteCrashLog(string logDir, string title, Exception? exception, string? extra = null)
+{
+    try
+    {
+        Directory.CreateDirectory(logDir);
+
+        var now = DateTime.Now;
+        var latestPath = Path.Combine(logDir, "AthenaRemastered.latest-crash.log");
+        var datedPath = Path.Combine(logDir, $"AthenaRemastered.crash.{now:yyyyMMdd-HHmmss}.log");
+
+        var content = BuildCrashLogContent(title, exception, extra, now);
+        File.WriteAllText(latestPath, content, Encoding.UTF8);
+        File.WriteAllText(datedPath, content, Encoding.UTF8);
+    }
+    catch
+    {
+        // Do not let crash logging throw while handling a failure path.
+    }
+}
+
+string BuildCrashLogContent(string title, Exception? exception, string? extra, DateTime timestamp)
+{
+    var sb = new StringBuilder();
+    sb.AppendLine("Athena Remastered Server Crash Log");
+    sb.AppendLine($"Timestamp: {timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}");
+    sb.AppendLine($"Title: {title}");
+    sb.AppendLine($"BaseDirectory: {AppContext.BaseDirectory}");
+    sb.AppendLine($"OS: {Environment.OSVersion}");
+    sb.AppendLine($"64BitOS: {Environment.Is64BitOperatingSystem}");
+    sb.AppendLine($"64BitProcess: {Environment.Is64BitProcess}");
+    sb.AppendLine($"ProcessArchitecture: {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}");
+    sb.AppendLine($"Framework: {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}");
+    sb.AppendLine($"CommandLine: {Environment.CommandLine}");
+
+    if (!string.IsNullOrWhiteSpace(extra))
+    {
+        sb.AppendLine();
+        sb.AppendLine("Details:");
+        sb.AppendLine(extra);
+    }
+
+    if (exception != null)
+    {
+        sb.AppendLine();
+        sb.AppendLine("Exception:");
+        sb.AppendLine(exception.ToString());
+    }
+
+    return sb.ToString();
 }

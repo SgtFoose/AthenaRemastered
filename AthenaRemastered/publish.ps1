@@ -61,11 +61,31 @@ if (Test-Path $MapCacheBackup) {
     Remove-Item $MapCacheBackup -Recurse -Force
 }
 
-# ── 3. Copy frontend build into wwwroot ───────────────────────────────────────
-Write-Host '[3/3] Copying frontend to wwwroot ...' -ForegroundColor Yellow
+# ── 3. Copy frontend build into ALL wwwroot targets ──────────────────────────
+Write-Host '[3/3] Copying frontend to all wwwroot targets ...' -ForegroundColor Yellow
 $FrontendDist = Join-Path $FrontendDir 'dist'
-Remove-DirectoryRobust $WwwRoot
-Copy-Item $FrontendDist $WwwRoot -Recurse
+
+# All known wwwroot locations that need the built frontend.
+# Discovered 2026-03: there are 5 active targets — missing any causes stale UI bugs.
+$WwwRoots = @(
+    $WwwRoot,                                                                    # AthenaRemastered/publish/wwwroot
+    (Join-Path $Root '@AthenaRemastered\Server\wwwroot'),                        # AthenaRemastered/@AthenaRemastered/Server/wwwroot
+    (Join-Path $Root '@Athena Web Remastered\Server\wwwroot'),                   # AthenaRemastered/@Athena Web Remastered/Server/wwwroot
+    (Join-Path $Root 'publish-single\wwwroot'),                                  # AthenaRemastered/publish-single/wwwroot
+    (Join-Path $Root '..\publish\wwwroot'),                                      # root-level publish/wwwroot
+    (Join-Path $Root '..\..\@AthenaRemastered\Server\wwwroot')                   # root-level @AthenaRemastered/Server/wwwroot
+)
+
+foreach ($target in $WwwRoots) {
+    $target = [System.IO.Path]::GetFullPath($target)
+    if (!(Test-Path (Split-Path $target -Parent))) {
+        Write-Host "  SKIP (parent missing): $target" -ForegroundColor DarkGray
+        continue
+    }
+    Remove-DirectoryRobust $target
+    Copy-Item $FrontendDist $target -Recurse
+    Write-Host "  OK  $target" -ForegroundColor DarkGreen
+}
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 $exe = Join-Path $PublishDir 'AthenaRemastered.Server.exe'

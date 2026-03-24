@@ -41,6 +41,7 @@ class CfgFunctions {
             class WorldLocations  { file = "\athena\World\getLocations.sqf"; };
             class WorldRoads      { file = "\athena\World\getRoads.sqf"; };
             class WorldStructures { file = "\athena\World\getStructures.sqf"; };
+            class WorldTrees      { file = "\athena\World\getTrees.sqf"; };
         };
         class Events {
             file = "\athena\Events";

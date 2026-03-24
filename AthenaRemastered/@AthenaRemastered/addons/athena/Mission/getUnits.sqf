@@ -1,5 +1,5 @@
 //setup private vars
-private ["_units", "_unitsPlayable", "_idPlayer", "_idSession", "_idSteam", "_idUnit", "_idGroup", "_idLeader", "_idVehicle", "_name", "_faction", "_side", "_team", "_type", "_rank", "_hasMediKit", "_weaponPrimary", "_weaponSecondary", "_weaponHandgun"];
+private ["_units", "_unitsPlayable", "_idPlayer", "_idSession", "_idSteam", "_idUnit", "_idGroup", "_idLeader", "_idVehicle", "_name", "_faction", "_side", "_team", "_type", "_rank", "_isCurrentPlayer", "_hasMediKit", "_weaponPrimary", "_weaponSecondary", "_weaponHandgun"];
 
 //get units
 _units = player getVariable ["ATHENA_SCOPE_UNITS", []];
@@ -29,6 +29,7 @@ _unitsPlayable = playableUnits;
         _team = assignedTeam _x;
         _type = typeOf _x;
         _rank = rank _x;
+        _isCurrentPlayer = (_x == player);
 
         _hasMediKit = ("Medikit" in (backpackItems _x));
         _weaponPrimary = primaryWeapon _x;
@@ -49,7 +50,6 @@ _unitsPlayable = playableUnits;
                         _idSteam = getPlayerUID player;
                 };
         } else {
-                //There are playable units, must be multiplayer
                 if (_x in _unitsPlayable) then {
                         if (isPlayer _x) then {
                                 if(_x == player) then {
@@ -69,6 +69,14 @@ _unitsPlayable = playableUnits;
         if (!(_x getVariable ["ATHENA_EVENTS", false])) then {
                 _x addEventHandler ["FiredMan", {
                         if (isClass(configFile >> "CfgPatches" >> "athena")) then { _this call ATH_fnc_HandleFired; };
+                }];
+                _x addEventHandler ["Fired", {
+                        if (isClass(configFile >> "CfgPatches" >> "athena")) then {
+                                params ["_unit", "_weapon", "_muzzle", "_mode", "_ammo", "_magazine", "_projectile"];
+                                private _veh = vehicle _unit;
+                                if (_veh isEqualTo _unit) then { _veh = objNull; };
+                                [_unit, _weapon, _muzzle, _mode, _ammo, _magazine, _projectile, _veh] call ATH_fnc_HandleFired;
+                        };
                 }];
                 _x setVariable ["ATHENA_EVENTS", true];
         };
@@ -90,6 +98,7 @@ _unitsPlayable = playableUnits;
                 _team,
                 _type,
                 _rank,
+                _isCurrentPlayer,
                 _hasMediKit,
                 _weaponPrimary,
                 _weaponSecondary,

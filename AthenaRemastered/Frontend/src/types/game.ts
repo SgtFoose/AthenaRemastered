@@ -114,6 +114,7 @@ export interface Unit {
   team: string;
   type: string;
   rank: string;
+  isActivePlayer?: boolean;
   hasMediKit: boolean;
   weaponPrimary: string;
   weaponSecondary: string;

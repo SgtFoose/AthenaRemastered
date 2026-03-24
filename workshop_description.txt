@@ -8,7 +8,7 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 [h1]Features[/h1]
 
 [list]
-[*] [b]Live Force and Faction Tracking[/b] — All units, vehicles, and groups rendered in real time on an interactive map
+[*] [b]Live Force and Faction Tracking[/b] — All visible WEST/EAST/GUER/CIV units, vehicles, and groups rendered in real time
 [*] [b]Full Terrain Rendering[/b] — Roads, forests, coastlines, contour lines, buildings, and named locations exported directly from the game engine
 [*] [b]Multiple Map Styles[/b] — Switch between 2D Topographic, Ground Heatmap, and Pilot Heatmap views
 [*] [b]NATO APP-6 Symbology[/b] — Group markers with proper echelon indicators
@@ -16,10 +16,15 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 [*] [b]Role-Specific Unit Icons[/b] — Infantry, medic, officer, engineer, recon, MG, AT, and more
 [*] [b]Active Lazes[/b] — Live laser designation points visible to all connected Athena clients
 [*] [b]Projectile Tracking[/b] — Predicted ordnance paths with live ETA labels for major launches
+[*] [b]Follow Active Player[/b] — Optional auto-follow on the currently controlled player unit
+[*] [b]Forest + Trees Layer Controls[/b] — Independent toggles for forest overlay and tree rendering
+[*] [b]Coordinate Readouts[/b] — Location X/Y and live mouse-position X/Y on the map
 [*] [b]Real-Time Event Feed[/b] — Live kill feed and shot tracking
 [*] [b]ORBAT Panel[/b] — Order of Battle view showing all groups organized by faction
 [*] [b]Multi-Device Support[/b] — Connect multiple browsers, tablets, or phones to a single session
 [*] [b]Server Admin Controls[/b] — Mission makers can toggle visibility of EAST/GUER/CIV sides via mission parameters
+[*] [b]Self-Contained Server EXE[/b] — Embedded .NET 9 runtime, no separate runtime install needed
+[*] [b]Crash Logs[/b] — Built-in logging to help diagnose startup/runtime failures
 [/list]
 
 
@@ -127,10 +132,19 @@ These settings are pushed automatically from the mission to all connected browse
 [list]
 [*] Added Active Lazes live map markers for laser designation awareness
 [*] Added Projectile Tracking with predicted flight paths and ETA labels
-[*] Fired-event telemetry now forwards target hints from assigned targets and laser detections
-[*] Vehicle-fired heavy ordnance is captured more reliably for map playback
-[*] Follow-up polish: projectile direction now uses turret fire direction for better artillery/vehicle accuracy
-[*] Follow-up polish: CIV filtering/colors corrected; tree/object map rendering visibility and orientation improved
+[*] Added forest rendering pipeline and separate Forest Overlay/Trees toggles
+[*] Added Follow Active Player mode
+[*] Added location X/Y coordinates and live mouse-position X/Y readout
+[*] Embedded .NET 9 runtime in AthenaRemastered.Server.exe (self-contained server)
+[*] Added crash logging for startup/runtime issue diagnostics
+[*] Fixed iPad/tablet export-status panel scaling
+[*] Fixed Ground and Pilot map style rendering
+[*] Fixed contour rendering
+[*] Fixed roads toggle affecting objects/structures
+[*] Fixed waypoint clearing after a unit dies
+[*] Fixed steerable parachute icon
+[*] Updated render status fields
+[*] BattlEye whitelist filing submitted; workaround prepared while allowlisting is pending
 [/list]
 
 [b]v1.1.5[/b] — March 21, 2026

@@ -1,10 +1,14 @@
 private ["_name", "_function", "_data"];
 
+diag_log "Athena Init: script started";
+
 //check for dedicated server
-if (!hasInterface) exitWith {};
+if (!hasInterface) exitWith { diag_log "Athena Init: no interface, exiting"; };
 
 //check for player
+diag_log "Athena Init: waiting for player...";
 waitUntil {!isNull player};
+diag_log "Athena Init: player found";
 
 //we maintain a list of available scopes
 //1 - Player
@@ -32,13 +36,31 @@ sleep 1;
 //Without this, callExtension HTTP calls block/timeout and freeze Arma's scheduler.
 private _serverReady = false;
 private _attempts = 0;
+diag_log "Athena Init: starting handshake loop";
 while {!_serverReady} do {
 	_attempts = _attempts + 1;
-	private _response = "AthenaServer" callExtension ["get", ["request"]];
-	//callExtension returns ["content", returnCode, callCode]
-	//returnCode 0 = success; non-zero or exception = server not reachable
-	if ((_response select 1) == 0) then {
+	//Use ping here so we do not consume backend request-queue items before monitorRequests starts.
+	private _response = "AthenaServer" callExtension ["ping", []];
+	diag_log format ["Athena Init: handshake attempt=%1 pingResponse=%2", _attempts, _response];
+	private _rc = _response param [1, -999];
+	private _pingOk = ((_rc == 0) || {str _rc == "0"}) && {(_response param [0, ""]) != ""};
+
+	//If ping is unavailable (older DLL), fall back to a lightweight PUT probe.
+	//This checks backend reachability without consuming request-queue items.
+	if (!_pingOk) then {
+		private _probe = "AthenaServer" callExtension ["put", ["healthcheck"]];
+		private _prc = _probe param [1, -999];
+		private _probeOk = (_prc == 0) || {str _prc == "0"};
+		diag_log format ["Athena Init: handshake fallback probe response=%1", _probe];
+		if (_probeOk) then {
+			_serverReady = true;
+			diag_log "Athena Init: handshake succeeded via fallback probe";
+		};
+	};
+
+	if (_pingOk) then {
 		_serverReady = true;
+		diag_log "Athena Init: handshake succeeded";
 	} else {
 		if (_attempts == 5) then {
 			systemChat "Athena: Extension handshake still failing. If BattlEye is enabled, it may be blocking AthenaServer_x64.dll.";
@@ -59,14 +81,19 @@ systemChat "Athena: Backend server connected!";
 hint parseText "<t size='1.1' color='#00FF80'>Athena Remastered</t><br/>Backend server connected!";
 sleep 1;
 
+diag_log "Athena Init: calling ATH_fnc_Mission";
 //start athena extension process
 [] call ATH_fnc_Mission;
 
+diag_log "Athena Init: calling ATH_fnc_SendSettings";
 //send server admin settings to backend
 [] call ATH_fnc_SendSettings;
 
+diag_log "Athena Init: spawning monitor scripts";
 //start routines
 [] execVM "\athena\monitorScope.sqf";
 [] execVM "\athena\monitorRequests.sqf";
 [] execVM "\athena\monitorArma.sqf";
 [] execVM "\athena\loopEvents.sqf";
+
+diag_log "Athena Init: all scripts launched";

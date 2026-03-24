@@ -117,23 +117,36 @@ function App() {
   const mapFocusRef = useRef<(posX: number, posY: number) => void>(() => {})
   const mapPanRef = useRef<(posX: number, posY: number) => void>(() => {})
   const lastFollowPosRef = useRef<{ x: number; y: number } | null>(null)
+  const lastFollowTargetIdRef = useRef<string | null>(null)
+  const previousMissionPlayerRef = useRef('')
 
   const activePlayerAnchor = useMemo(() => {
     const missionPlayer = frame?.mission?.player?.trim().toLowerCase() ?? ''
+    const missionSteamId = frame?.mission?.steamId?.trim() ?? ''
     const unitList = Object.values(units)
-    const primary = missionPlayer
-      ? unitList.find(u => u.playerName?.trim().toLowerCase() === missionPlayer)
-      : undefined
-    const fallback = primary ?? unitList.find(u => u.playerName?.trim())
+    const isSameMissionSteam = (steamId: string) => missionSteamId !== '' && steamId.trim() === missionSteamId
+
+    // Prefer explicit active marker from the game export.
+    const primary = unitList.find(u => Boolean(u.isActivePlayer))
+      // Then try direct unit-name match (important for switchable SP units).
+      ?? (missionPlayer ? unitList.find(u => u.name?.trim().toLowerCase() === missionPlayer) : undefined)
+      // Then try player profile name match.
+      ?? (missionPlayer ? unitList.find(u => u.playerName?.trim().toLowerCase() === missionPlayer) : undefined)
+
+    // Fallback only to mission SteamID-linked unit; avoid generic fallback that can lock onto the wrong unit.
+    const fallback = primary
+      ?? unitList.find(u => isSameMissionSteam(u.steamId))
+
     if (!fallback) return null
 
     const veh = fallback.vehicleId ? vehicles[fallback.vehicleId] : undefined
     return {
+      id: fallback.id,
       name: fallback.playerName?.trim() || fallback.name || 'Active Player',
       x: veh?.posX ?? fallback.posX,
       y: veh?.posY ?? fallback.posY,
     }
-  }, [frame?.mission?.player, units, vehicles])
+  }, [frame?.mission?.player, frame?.mission?.steamId, units, vehicles])
 
   useEffect(() => {
     if (!followActivePlayer || !activePlayerAnchor) return
@@ -141,16 +154,44 @@ function App() {
     const dx = (last?.x ?? Number.NaN) - activePlayerAnchor.x
     const dy = (last?.y ?? Number.NaN) - activePlayerAnchor.y
     const moved = !Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) >= 2.5
-    if (!moved) return
+    const targetChanged = lastFollowTargetIdRef.current !== activePlayerAnchor.id
+    if (!moved && !targetChanged) return
     lastFollowPosRef.current = { x: activePlayerAnchor.x, y: activePlayerAnchor.y }
+    lastFollowTargetIdRef.current = activePlayerAnchor.id
     mapPanRef.current(activePlayerAnchor.x, activePlayerAnchor.y)
   }, [followActivePlayer, activePlayerAnchor])
 
   useEffect(() => {
     if (!followActivePlayer) {
       lastFollowPosRef.current = null
+      lastFollowTargetIdRef.current = null
     }
   }, [followActivePlayer])
+
+  useEffect(() => {
+    const missionPlayer = frame?.mission?.player?.trim() ?? ''
+    const previous = previousMissionPlayerRef.current
+    if (previous && missionPlayer && previous !== missionPlayer && followActivePlayer) {
+      // Switching controlled units can briefly produce stale identities; require manual re-enable.
+      setFollowActivePlayer(false)
+      lastFollowPosRef.current = null
+      lastFollowTargetIdRef.current = null
+    }
+    previousMissionPlayerRef.current = missionPlayer
+  }, [frame?.mission?.player, followActivePlayer])
+
+  const handleToggleFollowActivePlayer = useCallback(() => {
+    setFollowActivePlayer(prev => {
+      const next = !prev
+      if (next && activePlayerAnchor) {
+        // When follow is enabled, jump to the active unit at maximum map zoom.
+        mapFocusRef.current(activePlayerAnchor.x, activePlayerAnchor.y)
+        lastFollowPosRef.current = { x: activePlayerAnchor.x, y: activePlayerAnchor.y }
+        lastFollowTargetIdRef.current = activePlayerAnchor.id
+      }
+      return next
+    })
+  }, [activePlayerAnchor])
 
   const handleRequestWorld = useCallback(() => {
     setMapSessionKey(prev => prev + 1)
@@ -200,7 +241,7 @@ function App() {
           onToggleLayer={toggleLayer}
           followActivePlayer={followActivePlayer}
           activePlayerName={activePlayerAnchor?.name ?? null}
-          onToggleFollowActivePlayer={() => setFollowActivePlayer(prev => !prev)}
+          onToggleFollowActivePlayer={handleToggleFollowActivePlayer}
           renderMode={renderMode}
           onChangeRenderMode={setRenderMode}
           serverSettings={serverSettings}

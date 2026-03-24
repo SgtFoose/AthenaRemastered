@@ -116,7 +116,7 @@ public class GameStateService
     public void PutUnit(string id, string groupId, string leaderId, string vehicleId,
                         string playerName, string sessionId, string steamId,
                         string name, string faction, string side, string team, string type,
-                        string rank, bool hasMediKit,
+                        string rank, bool isActivePlayer, bool hasMediKit,
                         string wpPrimary, string wpSecondary, string wpHandgun)
     {
         var existing = _units.GetValueOrDefault(id) ?? new Unit { Id = id };
@@ -124,6 +124,7 @@ public class GameStateService
         existing.PlayerName = playerName; existing.SessionId = sessionId; existing.SteamId = steamId;
         existing.Name = name; existing.Faction = faction; existing.Side = side;
         existing.Team = team; existing.Type = type; existing.Rank = rank;
+        existing.IsActivePlayer = isActivePlayer;
         existing.HasMediKit = hasMediKit;
         existing.WeaponPrimary = wpPrimary; existing.WeaponSecondary = wpSecondary;
         existing.WeaponHandgun = wpHandgun;

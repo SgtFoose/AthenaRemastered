@@ -54,7 +54,3 @@ _notypes = ["Mount", "Invisible"];
 
 ATHENA_LOCS_DONE = true;
 systemChat "Athena: Locations exported.";
-if (ATHENA_ROADS_DONE && ATHENA_FORESTS_DONE && ATHENA_LOCS_DONE) then {
-	hint parseText "<t size='1.2' color='#00FF80'>Athena Remastered</t><br/>Map is ready!";
-	systemChat "Athena: Map render complete - Athena Remastered is ready!";
-};

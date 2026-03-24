@@ -4,6 +4,7 @@ private ["_nameDisplay", "_nameWorld", "_author", "_sizeWorld", "_forestMin", "_
 ATHENA_ROADS_DONE   = false;
 ATHENA_FORESTS_DONE = false;
 ATHENA_LOCS_DONE    = false;
+ATHENA_TREES_DONE   = false;
 
 //alert user with prominent in-game hint
 hint parseText format ["<t size='1.2' color='#FFC200'>Athena Remastered</t><br/>Rendering map for: <t color='#FFFFFF'>%1</t><br/><t size='0.8' color='#AAAAAA'>This may take a few minutes...</t>", worldName];

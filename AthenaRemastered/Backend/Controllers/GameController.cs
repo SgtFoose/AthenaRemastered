@@ -72,7 +72,7 @@ public class GameController : ControllerBase
             case "unit":
                 _state.PutUnit(S(0), S(1), S(2), S(3), S(4), S(5), S(6),
                                S(7), S(8), S(9), S(10), S(11), S(12),
-                               B(13), S(14), S(15), S(16));
+                               B(13), B(14), S(15), S(16), S(17));
                 break;
 
             case "vehicle":

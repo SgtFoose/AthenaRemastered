@@ -10,7 +10,7 @@ Athena Remastered v1.1.6 adds Active Lazes and Projectile Tracking for faster ta
 
 ![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 
-Athena Remastered is a Blue-Force Tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events directly from the game engine.
+Athena Remastered is a real-time tactical tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events across all visible sides directly from the game engine.
 
 ## Migration Status
 
@@ -33,7 +33,7 @@ During migration, documentation and release notes explicitly state whether a bui
 
 Athena Remastered runs alongside Arma 3 and provides a real-time tactical overview:
 
-- **Live tracking** of all friendly units, vehicles, and groups on an interactive map
+- **Live tracking** of all visible units, vehicles, and groups across WEST/EAST/GUER/CIV on an interactive map
 - **Full terrain rendering** — roads, forests, coastlines, contour lines, buildings, and named locations are all exported from the game and drawn as vector layers
 - **Multiple map styles** — switch between 2D Topographic, Ground Heatmap, and Pilot Heatmap views
 - **NATO APP-6 symbology** — group markers with proper echelon indicators

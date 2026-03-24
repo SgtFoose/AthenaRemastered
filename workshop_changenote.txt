@@ -1,25 +1,39 @@
-## v1.1.6 — Active Lazes + Projectile Tracking + Follow-up Fixes (March 22, 2026)
+## v1.1.6 — Major Feature Update + Stability Pass
 
-**What’s New:**
+### New Features
 
-- Added **Active Lazes** so live laser designation points appear on the map for connected clients
-- Added **Projectile Tracking** with predicted flight paths and ETA labels for major ordnance
-- Improved fired-event targeting data using assigned targets, laser targets, and scanned laser objects
-- Captured vehicle-fired heavy ordnance more reliably with dedicated vehicle `Fired` handlers
+- Active Lazes: live laser designator points on the map
+- Projectile Tracking: live shot paths with ETA labels
+- Forest rendering pipeline added
+- New layer toggles: Forest Overlay and Trees
+- Follow Active Player mode added
+- Location X/Y coordinates added in UI
+- Mouse X/Y coordinates added on map
+- Embedded .NET 9 runtime in AthenaRemastered.Server.exe (self-contained)
+- Crash logging added for faster issue diagnosis
 
-**Follow-up Improvements (after release):**
+### Fixes and Improvements
 
-- Projectile direction now uses turret/fire vector data for artillery and vehicle weapons (instead of hull-only direction)
-- End-to-end fired-event direction flow aligned across SQF, backend, and frontend
-- CIV map/ORBAT filtering and color handling corrected
-- Tree/object rendering orientation and visibility tuned for clearer map output
+- iPad/tablet export status UI scaling fixed
+- Ground and Pilot map style rendering fixed
+- Contour rendering fixed
+- Roads toggle no longer affects objects/structures
+- Waypoints no longer clear when a unit dies
+- Steerable parachute icon fixed
+- Render status fields updated and improved
+- Follow mode reliability improved for active unit switches
 
-**BattlEye / DLL Note:**
+### BattlEye Status
 
-- Current DLL-based sessions should still use `-noBE` for singleplayer/LAN until the 1.1.6 extension build is allowlisted
-- Example: `arma3.exe -mod=@AthenaRemastered -noBE`
+- BattlEye whitelist filing submitted for the DLL build
+- Workaround is prepared for users while allowlisting is pending
 
-**Docs / Release Notes:**
+### Screenshots
 
-- README, changelog, and Workshop metadata updated for v1.1.6
-- Feature overview: https://github.com/SgtFoose/AthenaRemastered/blob/main/docs/v1.1.6-preview.md
+New v1.1.6 screenshots have been added, including:
+
+- Active Lazes and Projectile Tracking
+- Forest Overlay
+- Map Style Ground and Pilot
+- Mouse Coordinates
+- Objects Rendering and Trees Rendering
