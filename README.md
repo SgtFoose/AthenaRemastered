@@ -212,6 +212,45 @@ Follow current work for the upcoming version here:
 - **Planned (future):** Use the DLL-free architecture (SQF scheduled export + external bridge); no Arma extension dependency.
 - **Release gate:** See [docs/BATTLEYE_REGISTRATION_AND_RELEASE.md](docs/BATTLEYE_REGISTRATION_AND_RELEASE.md) for submission details and release process.
 
+## Tester Guide: RPT and Publish
+
+### Find and use the Arma RPT log
+
+When testing Athena in Arma, the RPT is the first place to confirm extension load and export flow.
+
+1. RPT location:
+  - %LOCALAPPDATA%\Arma 3\Arma3_x64_*.rpt
+2. Open the newest Arma3_x64_*.rpt after launching the game.
+3. Search for AthenaServer entries to verify startup and request handling.
+4. Confirm sequence during mission start:
+  - extension load message
+  - mission/world export messages
+  - request queue activity (roads/forests/locations)
+
+If map data is missing, attach the latest RPT segment around AthenaServer lines when reporting an issue.
+
+### Publish flow for testers (local release validation)
+
+Use this flow to validate a release package before manual Workshop publishing.
+
+1. Build and stage frontend/backend:
+
+```powershell
+cd AthenaRemastered
+.\publish.ps1
+```
+
+2. Rebuild PBO and sign with Arma tools:
+  - Build addon PBO with Addon Builder
+  - Sign each PBO with the project key so every .pbo has a matching .bisign
+3. Validate addon folder content before upload:
+  - athena.pbo and athena.fixed.pbo are present
+  - both have matching .bisign files
+4. Copy/sync outputs to the mod distribution folder:
+  - @AthenaRemastered\addons
+  - @AthenaRemastered\Server\wwwroot
+5. Run Publisher upload manually after signatures and file sync are confirmed.
+
 ## Links
 
 - [**Steam Workshop**](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
