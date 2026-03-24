@@ -8,7 +8,7 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 [h1]Features[/h1]
 
 [list]
-[*] [b]Live Force and Faction Tracking[/b] — All visible WEST/EAST/GUER/CIV units, vehicles, and groups rendered in real time
+[*] [b]Live Force and Faction Tracking[/b] — All visible WEST/EAST/GUER/CIV units, vehicles, and groups rendered in real time (not limited to Blue-Force)
 [*] [b]Full Terrain Rendering[/b] — Roads, forests, coastlines, contour lines, buildings, and named locations exported directly from the game engine
 [*] [b]Multiple Map Styles[/b] — Switch between 2D Topographic, Ground Heatmap, and Pilot Heatmap views
 [*] [b]NATO APP-6 Symbology[/b] — Group markers with proper echelon indicators
@@ -144,6 +144,7 @@ These settings are pushed automatically from the mission to all connected browse
 [*] Fixed waypoint clearing after a unit dies
 [*] Fixed steerable parachute icon
 [*] Updated render status fields
+[*] Tracking and display workflows are aligned for all visible sides (WEST/EAST/GUER/CIV)
 [*] BattlEye whitelist filing submitted; workaround prepared while allowlisting is pending
 [/list]
 

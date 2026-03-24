@@ -6,11 +6,20 @@
 
 ## Latest Release
 
-Athena Remastered v1.1.6 adds Active Lazes and Projectile Tracking for faster target handoff and better shot-path awareness. Follow-up updates improved projectile heading accuracy (turret-based direction) and map rendering consistency for day-to-day ops. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
+Athena Remastered v1.1.6 is a major feature and stability release. It adds Active Lazes, Projectile Tracking, forest rendering controls, Follow Active Player, embedded .NET 9 in the server EXE, and broad UI/rendering fixes across map styles and overlays. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
 
 ![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 
 Athena Remastered is a real-time tactical tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events across all visible sides directly from the game engine.
+
+![Athena Remastered Active Lazes and Projectile Tracking 2](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking%202.png)
+![Athena Remastered Active Lazes](Images/Athena%20Remastered%20Active%20Lazes.png)
+![Athena Remastered Forest Overlay](Images/Athena%20Remastered%20Forest%20Overlay.png)
+![Athena Remastered Trees Render](Images/Athena%20Remastered%20Trees%20Render.png)
+![Athena Remastered Map Style Ground](Images/Athena%20Remastered%20Map%20Style%20Ground.png)
+![Athena Remastered Map Style Pilot](Images/Athena%20Remastered%20Map%20Style%20Pilot.png)
+![Athena Remastered Mouse Coordinates](Images/Athena%20Remastered%20Mouse%20Coordinates.png)
+![Athena Remastered Objects Rendering](Images/Athena%20Remastered%20Objects%20Rendering.png)
 
 ## Migration Status
 

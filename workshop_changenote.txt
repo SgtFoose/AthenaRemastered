@@ -22,6 +22,7 @@
 - Steerable parachute icon fixed
 - Render status fields updated and improved
 - Follow mode reliability improved for active unit switches
+- Tracking and display workflows are aligned for all visible sides (WEST/EAST/GUER/CIV)
 
 ### BattlEye Status
 
