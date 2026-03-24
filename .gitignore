@@ -46,6 +46,7 @@ AthenaServer_x64.pdb
 # Publish output
 AthenaRemastered/publish/
 AthenaRemastered/publish-single/
+publish/
 
 # Private signing keys
 *.biprivatekey
