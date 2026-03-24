@@ -7,15 +7,13 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
-## [Unreleased]
+## [1.1.6] — 2026-03-21
 
 ### Fixed
 - Projectile heading for artillery/vehicle fire now uses turret-derived fire direction where available, preventing hull-direction drift in trajectory visuals
 - Fired event direction payload is carried consistently from SQF through backend to frontend rendering
 - CIV side filtering and color behavior in map/ORBAT views are now consistent
 - Tree/object static map rendering was adjusted for orientation consistency and practical zoom visibility
-
-## [1.1.6] — 2026-03-21
 
 ### BattlEye Status
 - Not Submitted: `AthenaServer_x64.dll` v1.1.6 requires a fresh allowlist submission if you ship a rebuilt DLL
