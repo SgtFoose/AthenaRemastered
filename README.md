@@ -4,6 +4,19 @@
 
 [![Steam Workshop](https://img.shields.io/badge/Steam_Workshop-Subscribe-blue?logo=steam)](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607)
 
+## Featured Video
+
+<p align="center">
+  <a href="https://youtu.be/ptg3v0dg8vo">
+    <img src="https://img.youtube.com/vi/ptg3v0dg8vo/maxresdefault.jpg" alt="Watch the latest Athena Remastered video on YouTube" width="960">
+  </a>
+</p>
+
+<p align="center">
+  <strong><a href="https://youtu.be/ptg3v0dg8vo">Watch the latest Athena Remastered video on YouTube</a></strong><br/>
+  Gameplay, features, and the newest Athena Remastered update in action.
+</p>
+
 ## Latest Release
 
 
@@ -13,18 +26,6 @@ Athena Remastered v1.1.6 is a major feature and stability release. It adds Activ
 ![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 
 Athena Remastered is a real-time tactical tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events across all visible sides directly from the game engine.
-
-## Latest Video
-
-<p align="center">
-  <a href="https://youtu.be/ptg3v0dg8vo">
-    <img src="Images/latest-video-card.svg" alt="Watch the latest Athena Remastered video on YouTube" width="900">
-  </a>
-</p>
-
-<p align="center">
-  <a href="https://youtu.be/ptg3v0dg8vo"><strong>Open the latest video on YouTube</strong></a>
-</p>
 
 ![Athena Remastered Active Lazes and Projectile Tracking 2](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking%202.png)
 ![Athena Remastered Active Lazes](Images/Athena%20Remastered%20Active%20Lazes.png)
