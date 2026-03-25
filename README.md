@@ -6,9 +6,6 @@
 
 ## Latest Release
 
-<a href="https://www.youtube.com">
-  <img src="https://img.youtube.com" width="400" alt="Bekijk de video">
-</a>
 
 
 Athena Remastered v1.1.6 is a major feature and stability release. It adds Active Lazes, Projectile Tracking, forest rendering controls, Follow Active Player, embedded .NET 9 in the server EXE, and broad UI/rendering fixes across map styles and overlays. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
