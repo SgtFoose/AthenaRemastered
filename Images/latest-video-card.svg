@@ -1,0 +1,50 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Athena Remastered latest video</title>
+  <desc id="desc">A featured card linking to the latest Athena Remastered video on YouTube.</desc>
+  <defs>
+    <linearGradient id="bg" x1="86" y1="64" x2="1218" y2="682" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F172A"/>
+      <stop offset="0.45" stop-color="#0B3A5B"/>
+      <stop offset="1" stop-color="#14532D"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="252" y1="184" x2="964" y2="604" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38BDF8" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#22C55E" stop-opacity="0.18"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="164" y2="164" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FF4D4D"/>
+      <stop offset="1" stop-color="#DC2626"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1280" height="720" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#020617" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="720" rx="36" fill="#020617"/>
+  <g filter="url(#shadow)">
+    <rect x="32" y="32" width="1216" height="656" rx="32" fill="url(#bg)"/>
+  </g>
+
+  <circle cx="214" cy="132" r="168" fill="#38BDF8" fill-opacity="0.08"/>
+  <circle cx="1112" cy="618" r="206" fill="#22C55E" fill-opacity="0.1"/>
+  <rect x="86" y="86" width="1108" height="548" rx="28" fill="url(#glow)" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="2"/>
+
+  <rect x="112" y="112" width="152" height="40" rx="20" fill="#FFFFFF" fill-opacity="0.12"/>
+  <text x="188" y="138" text-anchor="middle" fill="#E2E8F0" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" letter-spacing="1.8">LATEST VIDEO</text>
+
+  <text x="112" y="242" fill="#FFFFFF" font-family="Segoe UI, Arial, sans-serif" font-size="68" font-weight="800">Athena Remastered</text>
+  <text x="112" y="320" fill="#E2E8F0" font-family="Segoe UI, Arial, sans-serif" font-size="44" font-weight="600">Watch the newest gameplay and feature update</text>
+
+  <text x="112" y="418" fill="#C7D2FE" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="500">Real-time tactical map • Live tracking • Arma 3 second-screen experience</text>
+
+  <g>
+    <circle cx="932" cy="360" r="124" fill="#FFFFFF" fill-opacity="0.12"/>
+    <circle cx="932" cy="360" r="82" fill="url(#play)"/>
+    <path d="M910 316L978 360L910 404V316Z" fill="white"/>
+  </g>
+
+  <rect x="112" y="520" width="344" height="72" rx="36" fill="#FFFFFF"/>
+  <text x="284" y="566" text-anchor="middle" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="800">Watch on YouTube</text>
+
+  <text x="112" y="642" fill="#E2E8F0" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="500">youtu.be/ptg3v0dg8vo</text>
+</svg>
