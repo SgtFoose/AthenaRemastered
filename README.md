@@ -7,13 +7,13 @@
 ## Featured Video
 
 <p align="center">
-  <a href="https://youtu.be/ptg3v0dg8vo">
+  <a href="https://www.youtube.com/watch?v=ptg3v0dg8vo">
     <img src="https://img.youtube.com/vi/ptg3v0dg8vo/maxresdefault.jpg" alt="Watch the latest Athena Remastered video on YouTube" width="960">
   </a>
 </p>
 
 <p align="center">
-  <strong><a href="https://youtu.be/ptg3v0dg8vo">Watch the latest Athena Remastered video on YouTube</a></strong><br/>
+  <strong><a href="https://www.youtube.com/watch?v=ptg3v0dg8vo">Watch the latest Athena Remastered video on YouTube</a></strong><br/>
   Gameplay, features, and the newest Athena Remastered update in action.
 </p>
 
@@ -21,7 +21,7 @@
 
 
 
-Athena Remastered v1.1.6 is a major feature and stability release. It adds Active Lazes, Projectile Tracking, forest rendering controls, Follow Active Player, embedded .NET 9 in the server EXE, and broad UI/rendering fixes across map styles and overlays. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
+Athena Remastered v1.1.6 is a major feature and stability release. It adds Active Lazes, Projectile Tracking, Who's Shooting, forest rendering controls, Follow Active Player, embedded .NET 9 in the server EXE, and broad UI/rendering fixes across map styles and overlays. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
 
 ![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 
@@ -63,6 +63,7 @@ Athena Remastered runs alongside Arma 3 and provides a real-time tactical overvi
 - **Role-specific unit icons** — infantry, medic, officer, engineer, recon, MG, AT, and more
 - **Active Lazes** — live laser designation points rendered directly on the map
 - **Projectile Tracking** — predicted missile, rocket, artillery, and cruise-weapon paths with ETA labels
+- **Who's Shooting** — units blink when firing so you can instantly see who is actively shooting
 - **Event feed** — real-time kill feed and shot tracking
 - **ORBAT panel** — Order of Battle view showing all groups organized by faction
 - **Multi-device support** — connect multiple browsers/tablets to a single session
