@@ -4,6 +4,14 @@
 A faithful remaster of Bus's original Athena Arma 3 second-screen application.
 Three components: **Extension** (C++ DLL loaded by Arma 3) → **Backend** (ASP.NET Core 9) → **Frontend** (React 19 + Vite + Leaflet).
 
+## Repository Boundaries (Important)
+- This repository (`AthenaRemastered`) is for the DLL/Backend/Frontend remaster line (`v1.x`).
+- Web2 client-only work (`v0.x`) belongs in the separate repository/folder: `C:\Users\jvdv2\Documents\Athena Web 2`.
+- Do not add, move, or update Web2 artifacts in this repo:
+  - `bridge/` service code
+  - Web2-only UI docs/changelogs/worklogs
+  - version entries like `0.0.x`
+
 ## Repository Layout
 ```
 AthenaRemastered/
