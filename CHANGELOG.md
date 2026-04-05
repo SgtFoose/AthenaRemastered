@@ -7,6 +7,22 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
+## [0.0.2] — 2026-04-05 (ClientOnly / AthenaWeb)
+
+### Added
+- Map cache health banner — amber warning when Athena Desktop map cache is missing, empty, or the active world isn't cached; links to Steam Workshop for first-time setup
+- `useHealthCheck` hook — polls `/api/health` every 15 seconds for cache and bridge status
+- World picker dropdown in sidebar — browse cached maps offline for pre-mission planning
+- Auto-override to live game world — when Arma starts sending data, any user-selected world is cleared automatically
+- Follow Active Player auto-disable — manually dragging or zooming the map now automatically turns off player-following mode
+
+### Changed
+- Sidebar controls simplified — removed fresh/stable mode dropdown, world override text field, Apply and Refresh buttons
+- Sidebar shows "Live" indicator with world name when game is actively connected
+
+### BattlEye Status
+- N/A: ClientOnly path uses no custom DLL
+
 ## [1.1.6] — 2026-03-21
 
 ### Fixed

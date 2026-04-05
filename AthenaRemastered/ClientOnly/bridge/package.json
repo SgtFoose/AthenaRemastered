@@ -1,6 +1,6 @@
 {
   "name": "athena-web-poc",
-  "version": "0.0.1-alpha",
+  "version": "0.0.2",
   "description": "Athena Arma3 relay web proof of concept",
   "main": "server.js",
   "bin": "server.js",
