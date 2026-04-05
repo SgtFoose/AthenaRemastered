@@ -40,8 +40,8 @@ Athena Remastered is a real-time tactical tracker that streams your Arma 3 missi
 
 Athena Remastered is currently migrating away from `AthenaServer_x64.dll` to a script-first pipeline:
 
-- **Current stable release (v1.1.6):** uses the DLL extension path
-- **In-progress ClientOnly path (v0.0.2):** lightweight Node.js bridge + React UI — no custom DLL, no ASP.NET backend. Connects directly to Bus's original Relay.exe and reads Athena Desktop map cache. Includes map cache health warnings, offline world browsing, and auto-follow UX.
+- **Current stable release:** uses the DLL extension path
+- **In-progress migration:** SQF scheduled exports + external companion bridge service (no Arma DLL dependency)
 
 During migration, documentation and release notes explicitly state whether a build is **DLL-based** or **DLL-free**.
 

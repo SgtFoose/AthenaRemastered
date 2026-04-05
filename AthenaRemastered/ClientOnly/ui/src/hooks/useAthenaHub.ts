@@ -305,27 +305,6 @@ export function useAthenHub() {
     await hydrateGeometry();
   }, [hydrateGeometry]);
 
-  /**
-   * Select a cached world for pre-planning (no game running).
-   * Passing '' or null clears the override and returns to live-follow mode.
-   */
-  const selectWorld = useCallback(async (worldName: string) => {
-    const name = (worldName || '').trim();
-    const mode = name ? 'stable' : 'fresh';
-    try {
-      const res = await fetch(`${API_BASE}/api/game/cachemode`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, worldOverride: name }),
-      });
-      if (!res.ok) return false;
-      await hydrateGeometry();
-      return true;
-    } catch {
-      return false;
-    }
-  }, [hydrateGeometry]);
-
   useEffect(() => {
     let cancelled = false;
     let reconnectTimer: number | null = null;
@@ -462,7 +441,6 @@ export function useAthenHub() {
     cacheMode,
     applyCacheMode,
     refreshMapCache,
-    selectWorld,
     requestWorldExport,
   }), [
     connected,
@@ -481,7 +459,6 @@ export function useAthenHub() {
     cacheMode,
     applyCacheMode,
     refreshMapCache,
-    selectWorld,
     requestWorldExport,
   ]);
 }

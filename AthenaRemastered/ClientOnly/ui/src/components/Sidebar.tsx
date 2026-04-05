@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { GameFrame, Group, Unit, MapLocation, ServerSettings } from '../types/game';
 import type { LayerVisibility, RenderMode } from '../App';
 import { APP_VERSION } from '../version';
@@ -55,10 +55,9 @@ interface Props {
   locationCount: number;
   structureCount: number;
   elevationCellCount: number;
-  cachedWorlds: string[];
-  selectedWorld: string;
-  liveWorld: string;
-  onSelectWorld: (worldName: string) => void;
+  cacheMode: { mode: 'fresh' | 'stable'; worldOverride: string; activeWorld: string };
+  onApplyCacheMode: (mode: 'fresh' | 'stable', worldOverride: string) => Promise<boolean>;
+  onRefreshMapCache: () => Promise<void>;
   layers: LayerVisibility;
   onToggleLayer: (key: keyof LayerVisibility) => void;
   followActivePlayer: boolean;
@@ -82,7 +81,7 @@ type OrbatSide = 'WEST' | 'EAST' | 'GUER' | 'CIV';
 export function Sidebar({
   frame, connected, onRequestWorld,
   roadCount, treeCount, forestCellCount, locationCount, structureCount, elevationCellCount,
-  cachedWorlds, selectedWorld, liveWorld, onSelectWorld,
+  cacheMode, onApplyCacheMode, onRefreshMapCache,
   layers, onToggleLayer, followActivePlayer, activePlayerName, onToggleFollowActivePlayer, renderMode, onChangeRenderMode,
   serverSettings, locations, groups, units, onFocusPosition,
 }: Props) {
@@ -190,10 +189,9 @@ export function Sidebar({
               roadCount={roadCount} treeCount={treeCount} forestCellCount={forestCellCount}
               locationCount={locationCount} structureCount={structureCount}
               elevationCellCount={elevationCellCount}
-              cachedWorlds={cachedWorlds}
-              selectedWorld={selectedWorld}
-              liveWorld={liveWorld}
-              onSelectWorld={onSelectWorld}
+              cacheMode={cacheMode}
+              onApplyCacheMode={onApplyCacheMode}
+              onRefreshMapCache={onRefreshMapCache}
             />}
 
             {mapSub === 'LOCATIONS' && <LocationsPanel
@@ -256,7 +254,7 @@ function CommonPanel({
   layers, onToggleLayer, followActivePlayer, activePlayerName, onToggleFollowActivePlayer, renderMode, onChangeRenderMode,
   onRequestWorld, connected,
   roadCount, treeCount, forestCellCount, locationCount, structureCount, elevationCellCount,
-  cachedWorlds, selectedWorld, liveWorld, onSelectWorld,
+  cacheMode, onApplyCacheMode, onRefreshMapCache,
 }: {
   layers: LayerVisibility; onToggleLayer: (key: keyof LayerVisibility) => void;
   followActivePlayer: boolean;
@@ -266,53 +264,112 @@ function CommonPanel({
   onRequestWorld: () => void; connected: boolean;
   roadCount: number; treeCount: number; forestCellCount: number; locationCount: number;
   structureCount: number; elevationCellCount: number;
-  cachedWorlds: string[];
-  selectedWorld: string;
-  liveWorld: string;
-  onSelectWorld: (worldName: string) => void;
+  cacheMode: { mode: 'fresh' | 'stable'; worldOverride: string; activeWorld: string };
+  onApplyCacheMode: (mode: 'fresh' | 'stable', worldOverride: string) => Promise<boolean>;
+  onRefreshMapCache: () => Promise<void>;
 }) {
-  const isLive = Boolean(liveWorld);
-  const displayWorld = liveWorld || selectedWorld || '';
+  const [cacheModeDraft, setCacheModeDraft] = useState<'fresh' | 'stable'>(cacheMode.mode);
+  const [worldDraft, setWorldDraft] = useState(cacheMode.worldOverride || '');
+  const [cacheBusy, setCacheBusy] = useState(false);
+
+  useEffect(() => {
+    setCacheModeDraft(cacheMode.mode);
+    setWorldDraft(cacheMode.worldOverride || '');
+  }, [cacheMode.mode, cacheMode.worldOverride]);
+
+  const handleApplyCacheMode = async () => {
+    setCacheBusy(true);
+    try {
+      await onApplyCacheMode(cacheModeDraft, worldDraft);
+    } finally {
+      setCacheBusy(false);
+    }
+  };
+
+  const handleRefreshCache = async () => {
+    setCacheBusy(true);
+    try {
+      await onRefreshMapCache();
+    } finally {
+      setCacheBusy(false);
+    }
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* World selector */}
+      {/* Map source cache mode */}
       <div style={panelStyle}>
-        <div style={sectionLabel}>MAP</div>
-        {isLive ? (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-            <span style={{ color: '#888', fontSize: 11 }}>Live</span>
-            <span style={{ color: '#2ecc71', fontSize: 12, fontWeight: 700 }}>{displayWorld}</span>
-          </div>
-        ) : (
-          <>
-            <select
-              value={selectedWorld}
-              onChange={(e) => onSelectWorld(e.target.value)}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                background: '#1e2e1e',
-                color: '#ddd',
-                border: '1px solid #333',
-                borderRadius: 4,
-                padding: '5px 6px',
-                fontSize: 12,
-                marginBottom: 2,
-              }}
-            >
-              <option value="">— select a map —</option>
-              {cachedWorlds.map(w => (
-                <option key={w} value={w}>{w}</option>
-              ))}
-            </select>
-            {cachedWorlds.length === 0 && (
-              <div style={{ color: '#f0a500', fontSize: 10, lineHeight: 1.4, marginTop: 2 }}>
-                No cached maps found. Use Athena Desktop to export a map first.
-              </div>
-            )}
-          </>
-        )}
+        <div style={sectionLabel}>MAP SOURCE</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ color: '#888', fontSize: 11 }}>Active cache world</span>
+          <span style={{ color: '#2ecc71', fontSize: 11, fontWeight: 700 }}>
+            {cacheMode.activeWorld || '—'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+          <select
+            value={cacheModeDraft}
+            onChange={(e) => setCacheModeDraft(e.target.value === 'stable' ? 'stable' : 'fresh')}
+            style={{
+              flex: 1,
+              background: '#1e2e1e',
+              color: '#ddd',
+              border: '1px solid #333',
+              borderRadius: 4,
+              padding: '4px 6px',
+              fontSize: 12,
+            }}
+          >
+            <option value="fresh">fresh (live follow)</option>
+            <option value="stable">stable (stored map)</option>
+          </select>
+        </div>
+        <input
+          value={worldDraft}
+          onChange={(e) => setWorldDraft(e.target.value)}
+          placeholder="World override (e.g. Altis)"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            marginBottom: 6,
+            background: '#1e2e1e',
+            color: '#ddd',
+            border: '1px solid #333',
+            borderRadius: 4,
+            padding: '6px 8px',
+            fontSize: 12,
+          }}
+        />
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            onClick={handleApplyCacheMode}
+            disabled={cacheBusy}
+            style={{
+              flex: 1,
+              background: cacheBusy ? '#333' : '#2c5f2e',
+              color: cacheBusy ? '#777' : '#fff',
+              border: 'none',
+              borderRadius: 4,
+              padding: '6px 0',
+              fontSize: 12,
+              cursor: cacheBusy ? 'not-allowed' : 'pointer',
+            }}
+          >Apply</button>
+          <button
+            onClick={handleRefreshCache}
+            disabled={cacheBusy}
+            style={{
+              flex: 1,
+              background: '#1e2e1e',
+              color: '#ddd',
+              border: '1px solid #2ecc71',
+              borderRadius: 4,
+              padding: '6px 0',
+              fontSize: 12,
+              cursor: cacheBusy ? 'not-allowed' : 'pointer',
+            }}
+          >Refresh</button>
+        </div>
       </div>
 
       {/* Map style */}

@@ -474,25 +474,6 @@ Purpose: track every step, fix, and next action while migrating from the legacy 
 - Removed unused `is120`/`is60`/`is30` variables from marching-squares loop (were left over from old variable-weight logic).
 - All changes verified with zero compile errors.
 
-### 2026-04-05 — Map Cache Banner + Sidebar Simplification + Follow-Player UX (v0.0.2)
-- **Map Cache Health Banner** (`MapCacheBanner.tsx` + `useHealthCheck.ts`):
-  - New `useHealthCheck` hook polls `/api/health` every 15s.
-  - Amber warning banner appears for 4 states: cache directory not found, cache empty, active world not cached, bridge unreachable.
-  - Banner is user-dismissible and links to Steam Workshop for Athena Desktop download.
-  - Handles HTTP 503 (degraded health) correctly — parses JSON body regardless of status code.
-- **Sidebar World Picker Overhaul** (`Sidebar.tsx`, `App.tsx`, `useAthenaHub.ts`):
-  - Removed confusing fresh/stable dropdown, world override text field, Apply and Refresh buttons.
-  - Replaced with a single world picker `<select>` populated from cached map folders detected by health endpoint.
-  - When Arma is running and sending live data, sidebar shows "Live" indicator with the active world name (dropdown hidden).
-  - Added `selectWorld()` in `useAthenaHub.ts` — sets cache mode to `stable` with override for picked world, or `fresh` when cleared.
-  - Added `userSelectedWorld` state in `App.tsx` with auto-clear effect: when a live game world arrives, any user-selected world is overridden automatically.
-- **Follow Active Player Auto-Disable** (`AthenaMap.tsx`, `App.tsx`):
-  - New `UserInteractionBridge` component inside Leaflet `MapContainer` listens for `dragstart` and `zoomstart` events.
-  - When user manually drags or zooms the map, `onUserInteraction` callback fires → `setFollowActivePlayer(false)` in App.
-  - Follow mode can be re-enabled via the existing sidebar button.
-- Files changed: `App.tsx`, `App.css`, `AthenaMap.tsx`, `Sidebar.tsx`, `useAthenaHub.ts` (modified); `MapCacheBanner.tsx`, `useHealthCheck.ts` (new).
-- Build verified: `tsc -b` and `vite build` both pass cleanly.
-
 ## Current Known Limitations
 - Forest density and sample-size inference still needs visual calibration per map (Altis/Malden/others).
 - Runtime maprow parser is heuristic-first; needs live-capture verification against multiple mission/maprow payload variants.

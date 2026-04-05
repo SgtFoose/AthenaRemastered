@@ -2911,7 +2911,6 @@ interface MapProps {
   locationMap?: Map<string, { DrawStyle: string; SizeText: number; Name: string }>;
   onRegisterFocus?: (fn: (posX: number, posY: number) => void) => void;
   onRegisterPan?: (fn: (posX: number, posY: number) => void) => void;
-  onUserInteraction?: () => void;
 }
 
 const DEFAULT_MAP_CENTER: [number, number] = [50, 50];
@@ -2994,24 +2993,6 @@ function ZoomSliderControl() {
       }}>{scaleLabel}×</span>
     </div>
   );
-}
-
-// ── User-interaction bridge — fires callback on manual drag / zoom ─────────
-function UserInteractionBridge({ onInteraction }: { onInteraction: () => void }) {
-  const map = useMap();
-  const callbackRef = useRef(onInteraction);
-  callbackRef.current = onInteraction;
-
-  useEffect(() => {
-    const handler = () => callbackRef.current();
-    map.on('dragstart', handler);
-    map.on('zoomstart', handler);
-    return () => {
-      map.off('dragstart', handler);
-      map.off('zoomstart', handler);
-    };
-  }, [map]);
-  return null;
 }
 
 // ── Focus bridge — lets sidebar pan the map to a world coordinate ──────────
@@ -3142,7 +3123,6 @@ export function AthenaMap({
   vehicleMap = new Map(), locationMap = new Map(),
   onRegisterFocus,
   onRegisterPan,
-  onUserInteraction,
 }: MapProps) {
   const bounds: L.LatLngBoundsExpression = [[0, 0], [100, 100]];
   const [projectileDebugEntries, setProjectileDebugEntries] = useState<ProjectileDebugEntry[]>([]);
@@ -3176,7 +3156,6 @@ export function AthenaMap({
       <ZoomSliderControl />
       <StartupRecenterControl world={world} worldSize={worldSize} />
       {(onRegisterFocus || onRegisterPan) && <FocusBridge worldSize={worldSize} onRegisterFocus={onRegisterFocus} onRegisterPan={onRegisterPan} />}
-      {onUserInteraction && <UserInteractionBridge onInteraction={onUserInteraction} />}
       <CursorCoordinateBridge worldSize={worldSize} elevLookup={elevLookup} onChange={setCursorCoords} />
       <LayerManager
         units={units}

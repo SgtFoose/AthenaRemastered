@@ -2,11 +2,9 @@ import { Component, useState, useRef, useCallback, useEffect, useMemo } from 're
 import type { ErrorInfo, ReactNode } from 'react'
 import { AthenaMap }   from './components/AthenaMap'
 import { Sidebar }     from './components/Sidebar'
-import { MapCacheBanner } from './components/MapCacheBanner'
 import { useAthenHub } from './hooks/useAthenaHub'
 import { useStaticMap } from './hooks/useStaticMap'
 import { useAthenaLibrary } from './hooks/useAthenaLibrary'
-import { useHealthCheck } from './hooks/useHealthCheck'
 import { APP_VERSION } from './version'
 import './App.css'
 
@@ -86,7 +84,9 @@ function App() {
     elevations,
     serverSettings,
     exportStatus,
-    selectWorld,
+    cacheMode,
+    applyCacheMode,
+    refreshMapCache,
     requestWorldExport,
   } = useAthenHub()
 
@@ -95,30 +95,7 @@ function App() {
   const groups   = frame?.groups   ?? {}
   const lazes    = frame?.lazes    ?? []
   const liveWorld = frame?.world?.nameWorld ?? frame?.mission?.world ?? ''
-  // User-selected world for pre-planning; auto-cleared when live game sends a world
-  const [userSelectedWorld, setUserSelectedWorld] = useState('')
-  const world     = liveWorld || userSelectedWorld || worldInfo?.nameWorld || ''
-
-  // When the game starts sending a live world, clear any user selection so the game takes over
-  const prevLiveWorldRef = useRef('')
-  useEffect(() => {
-    if (liveWorld && liveWorld !== prevLiveWorldRef.current && userSelectedWorld) {
-      setUserSelectedWorld('')
-      // Switch bridge back to live-follow mode
-      selectWorld('')
-    }
-    prevLiveWorldRef.current = liveWorld
-  }, [liveWorld, userSelectedWorld, selectWorld])
-
-  // Handle user picking a cached world from the dropdown
-  const handleSelectWorld = useCallback(async (worldName: string) => {
-    setUserSelectedWorld(worldName)
-    if (worldName) {
-      await selectWorld(worldName)
-    } else {
-      await selectWorld('')
-    }
-  }, [selectWorld])
+  const world     = liveWorld || worldInfo?.nameWorld || ''
 
   // Load pre-computed Athena Desktop cache (contour lines + metadata) for the active world
   const { staticInfo, contours } = useStaticMap(world || null)
@@ -128,16 +105,6 @@ function App() {
 
   // Load Athena Desktop vehicle/location classification library
   const { vehicleMap, locationMap } = useAthenaLibrary()
-
-  // Health check — detect missing map cache and show first-time instructions
-  const { health, error: healthError } = useHealthCheck(15_000)
-  const [cacheBannerDismissed, setCacheBannerDismissed] = useState(false)
-
-  // List of cached world names from the health endpoint (for world picker dropdown)
-  const cachedWorlds = useMemo(
-    () => (health?.mapCache?.worlds ?? []).filter(w => w.hasMapTxt).map(w => w.name),
-    [health],
-  )
 
   const [layers, setLayers] = useState<LayerVisibility>({
     contours:   true,
@@ -286,10 +253,9 @@ function App() {
           locationCount={locations.length}
           structureCount={structures.length}
           elevationCellCount={elevations?.cells.length ?? 0}
-          cachedWorlds={cachedWorlds}
-          selectedWorld={userSelectedWorld}
-          liveWorld={liveWorld}
-          onSelectWorld={handleSelectWorld}
+          cacheMode={cacheMode}
+          onApplyCacheMode={applyCacheMode}
+          onRefreshMapCache={refreshMapCache}
           layers={layers}
           onToggleLayer={toggleLayer}
           followActivePlayer={followActivePlayer}
@@ -349,14 +315,6 @@ function App() {
             </div>
           </div>
         )}
-        {!cacheBannerDismissed && (
-          <MapCacheBanner
-            health={health}
-            healthError={healthError}
-            activeWorld={world}
-            onDismiss={() => setCacheBannerDismissed(true)}
-          />
-        )}
         <MapErrorBoundary>
           <AthenaMap
             key={`${world || 'noworld'}:${worldSize}:${mapSessionKey}`}
@@ -381,7 +339,6 @@ function App() {
             renderMode={renderMode}
             onRegisterFocus={(fn) => { mapFocusRef.current = fn }}
             onRegisterPan={(fn) => { mapPanRef.current = fn }}
-            onUserInteraction={() => setFollowActivePlayer(false)}
           />
         </MapErrorBoundary>
         {exportStatus.phase !== 'idle' && (
