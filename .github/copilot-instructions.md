@@ -1,26 +1,5 @@
 # Athena Remastered — Copilot Context
 
-## ACTIVE DIRECTION (April 2026): ClientOnly Pivot
-- Primary path is now `AthenaRemastered/ClientOnly/`.
-- Goal: use Bus-compatible client-side relay consumption and preserve/remap the remastered UI.
-- Avoid adding/changing custom extension DLL behavior for this path.
-- Current working folders:
-  - `AthenaRemastered/ClientOnly/bridge` (Relay TCP -> WebSocket bridge)
-  - `AthenaRemastered/ClientOnly/ui` (React UI consuming bridge)
-
-### Working Rules For Copilot (ClientOnly)
-- Do not modify or depend on `Backend/` or `Extension/` for ClientOnly milestones unless explicitly requested.
-- Treat bridge protocol as source of truth:
-  - separator: `<ath_sep>`
-  - terminator: `<ath_sep>end`
-  - START equivalent command: `command<ath_sep>mapexport`
-- Keep a running step log in `AthenaRemastered/ClientOnly/WORKLOG.md` after each meaningful change:
-  - what was changed
-  - what was fixed
-  - what is still blocked
-  - next concrete task
-- Prefer incremental, testable changes over broad refactors.
-
 ## Project Overview
 A faithful remaster of Bus's original Athena Arma 3 second-screen application.
 Three components: **Extension** (C++ DLL loaded by Arma 3) → **Backend** (ASP.NET Core 9) → **Frontend** (React 19 + Vite + Leaflet).
