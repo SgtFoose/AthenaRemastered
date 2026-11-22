@@ -27,6 +27,13 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - one `srifle_LRR_camo_F` shot = exactly **one** Recent Shots entry: the first live test with the new SQF actually loaded; the duplicate-shot fix is confirmed
   - crew labels confirmed live: M4 Scorchers show `D:` / `G:` / `C:` with the real crew names (`ParseCrew` fix); vehicles show Bus silhouettes (the v1.2.0 package server already includes them)
   - observation: at mid zoom the 80 px vehicle silhouettes are much larger than in the in-game map, overlap each other and cover unit labels around Saint Martin (M4 / Sandstorm / Sentinel). Candidate: zoom-dependent vehicle icon size.
+  - movement at 4 Hz is "reasonably smooth". Owner wants a user option (smoother vs. FPS). Plan: client-side position interpolation (no game cost), plus a sidebar update-rate choice (2/4/10 Hz) sent to Arma through the request queue (`ATHENA_UPDATE_INTERVAL`).
+  - icon size: fine zoomed in; zoomed out all blue merges into one blob. Plan: zoom-scaled vehicle silhouettes, unit name labels only above a zoom threshold.
+  - M5 Sandstorm `R_230mm_HE` at Sainte Marie (in-game Artillery Computer: 1665 m, ETA 21 s):
+    - direction correct; AR ETA 38 s, because `HDG` assumes the fixed 5000 m rocket range (curve: ~25 s at 1665 m, ~40 s at 5000 m)
+    - no correction after impact, even after several shots at the same target: `fired_impact` evidently is not sent for the M5
+    - cause: CfgAmmo `artilleryLock` is not set for `R_230mm_HE` (it is a CfgWeapons property), and none of the indirect-fire name patterns match `rockets_230mm_GAT` / `R_230mm_HE` / `12Rnd_230mm_rockets`
+    - fix: also check the weapon's `artilleryLock` and rocket/230mm name patterns. The real ETA/range fix is projectile tracking v2.
 
 ### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
 - A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
