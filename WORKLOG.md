@@ -25,6 +25,8 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - FPS 17 / GPU 23% / CPU 63%, vs. 17 FPS / CPU 76% without Athena: no measurable FPS cost with 66 units
   - the init fix and the 4 Hz throttle are confirmed
   - one `srifle_LRR_camo_F` shot = exactly **one** Recent Shots entry: the first live test with the new SQF actually loaded; the duplicate-shot fix is confirmed
+  - crew labels confirmed live: M4 Scorchers show `D:` / `G:` / `C:` with the real crew names (`ParseCrew` fix); vehicles show Bus silhouettes (the v1.2.0 package server already includes them)
+  - observation: at mid zoom the 80 px vehicle silhouettes are much larger than in the in-game map, overlap each other and cover unit labels around Saint Martin (M4 / Sandstorm / Sentinel). Candidate: zoom-dependent vehicle icon size.
 
 ### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
 - A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
