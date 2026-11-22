@@ -10,7 +10,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - the final signature is on a copy of the release package in the owner's Downloads folder
   - DSCheckSignatures: "No error"
 - Updated Workshop item 3687225607 with Arma 3 Tools Publisher: "Mod content structure seems to be valid", Extensions 64 bit, Signatures "all signed", 113.8 MB, "The item was successfully published".
-- The change note was pasted into the **Description** field, which replaced the long Workshop page description. `workshop_description.txt` was updated for 1.2.0 (vehicle silhouettes, I-TGT, tablet layout, BattlEye status, v1.2.0 version history) and copied to `D:\AthenaRemastered-Workshop-v1.2.0\workshop-description-v1.2.0.txt` so the owner can paste it back on the Workshop page (Edit title & description).
+- The change note was pasted into the **Description** field, which replaced the long Workshop page description. `workshop_description.txt` was updated for 1.2.0 (vehicle silhouettes, I-TGT, tablet layout, BattlEye status, v1.2.0 version history) so the owner can paste it back on the Workshop page (Edit title & description). The USB drive was at the game PC, so the owner takes the text from GitHub (branch `fix/fired-dedupe-header-label`) instead of D:.
 - Pending:
   - the signed `athena.pbo` and `.bisign` back on D: → rebuild the GitHub release zip and replace the draft asset
   - merge AR #10 / Web2 #11
