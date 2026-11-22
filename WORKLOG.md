@@ -13,6 +13,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - `Backend/Services/StaticAthenaCacheService.cs`: `LoadDesktopForests()` parses `Forests.txt` exactly like Web2's bridge: 16 m cells, `CellsLight` → level 2, `CellsHeavy` → level 3 (heavy wins), Y = worldSize − (yIdx + 1) × 16.
   - `Backend/Services/GameStateService.cs`: `ResolveDisplayForests()` prefers the Desktop cells and otherwise filters the in-game export to level ≥ 2 (`MinInGameForestLevel`). It is used when loading from MapCache and at `PutForestsComplete()`; the raw export is still cached unchanged.
   - Docs: `CHANGELOG.md` (1.2.0 Fixed), `CLAUDE.md` (forest source).
+- **Pinch zoom:** the owner later reported that zoom is fast again on the tablet and with the mouse wheel in the browser. No code change. The likely cause of the earlier slowness is the map re-rendering while the export was still streaming (390k trees, structures); it is not reproducible now. If it returns, note the device and whether an export was running.
 - **Validation:**
   - `dotnet build Backend -c Release` passed (0 warnings).
   - Simulation with `ATHENA_MAPCACHE_DIR` and a temporary fake Desktop `Forests.txt` (removed afterwards):
