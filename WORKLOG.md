@@ -13,7 +13,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - new `IsDuplicateFired`: same shooter + weapon + muzzle + ammo + projectile string within 250 ms is dropped (40 ms when the projectile is null)
   - the feed is now correct whichever PBO is loaded
   - `vehicleId` is deliberately not part of the key
-- **Vehicles:** core sync from Web2 (`f53b4ad`). Every vehicle is now a Bus silhouette; the NATO frames for drones, turrets, radars, MLRS and VLS are removed.
+- **Vehicles:** core sync from Web2 (`dacfb3c`). Every vehicle is now a Bus silhouette; the NATO frames for drones, turrets, radars, MLRS and VLS are removed.
 
 ### 2026-11-22 — release: PBO signing prerequisites
 - The owner's PC with Arma 3 Tools has been wiped. Searched this machine (`C:\Users`) and the owner's USB drive (`D:\`) for `*.biprivatekey`: none found, only the public `AthenaRemasteredKey.bikey`. The private key is gitignored by design (`.gitignore`: `*.biprivatekey`).
@@ -26,6 +26,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - replace `@AthenaRemastered/keys/*.bikey` and the tracked `.bisign`
   - mention in the release notes that servers verifying signatures must swap the bikey
   - back up the new private key outside the repo
+- Update: the owner has a backup of the private key on the USB drive (outside any repo). Verified it matches the shipped `keys/AthenaRemasteredKey.bikey`: same key name and identical 1024-bit RSA modulus (compared in memory, nothing printed or copied). This machine has no Steam/Arma 3 Tools, so signing happens with DSUtils/DSSignFile on the owner's game PC. Test packages rebuilt to D: (`af8de3b`, Web2 `dacfb3c`).
 
 ### 2026-11-22 — Core sync: map-data status box hides itself after loading
 - Owner request (screenshot of "Loaded from cache" on Malden): hide the box. Shared-core change from Web2 (`c05c765`): `cached` / `complete` disappear after 4 s, while `exporting` stays visible. Synced with `sync-core-to-ar.ps1` (`components/ExportStatusOverlay.tsx`, `core-manifest.json`).
