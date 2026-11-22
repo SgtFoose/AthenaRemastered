@@ -11,6 +11,9 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - one shot (`srifle_LRR_camo_F`, `B_408_Ball`) still gave two Recent Shots entries
   - Ground/Pilot map styles don't meet their purpose (added to the backlog)
   - **OK:** projectile tracking with a laser target works on Malden. The laser-guided shot from the NightHawk drone near Saint Martin was drawn as a dashed line to the laser spot with a counting-down `LASE ETA` label, and the active laze marker was shown.
+  - **Not OK:** unguided rocket/artillery fire without a laze is still way off. Malden, battery at Saint Martin, firing north towards hill 344 north of Dorres. The in-game artillery computer showed range `2483` m and ETA 28 s. AR showed `HDG ETA 31s` with the predicted path running past Blanches to roughly twice that distance.
+    - Cause (`Frontend/src/extensions/projectileTracking.tsx`): without a laze, waypoint or enemy in the fire direction, `estimateTarget` falls back to source `heading`. That places the impact at the profile's fixed `rangeM` along the fire azimuth (rockets 5000 m, artillery 9000 m, ship cannon 14000 m). The ETA comes from a fitted curve (`ballA * d^ballB`). Only after a shell lands does `fired_impact` correct later shots in the same direction, so the first shot of a fire mission is always wrong.
+    - Planned fix: projectile tracking v2 (see backlog). Not part of this branch.
 - **Duplicate shots.** Backend → SignalR → frontend is a single path: one PUT gives one `Fired` broadcast, and `useAthenaHub` registers `conn.on('Fired')` once, without StrictMode. The duplicate comes from SQF: for on-foot shots, both the unit's `FiredMan` and its `Fired` handler run. The 1.2.0 guard (`setVariable` on the projectile) didn't stop it live. Fix:
   - `Mission/getUnits.sqf`: only `FiredMan` is added. It covers on-foot and vehicle-seat shots.
   - `Mission/getVehicles.sqf`: the vehicle `Fired` handler skips gunners that carry `ATHENA_EVENTS`, since their own `FiredMan` reports the shot. Gunners Athena doesn't track are still reported.
@@ -279,7 +282,12 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [~] SQF: main-menu guard in `init.sqf` (2026-11-22, is3DEN + findDisplay 0; verify live via the RPT).
 - [x] Backend: skip the auto world export for cached worlds. It already did when MapCache was complete; the misleading "Rendering map" message was fixed (2026-11-22).
 - [ ] Backend: forest cell size (16) + Y-flip fix (as in Web2's bridge).
-- [ ] Projectile tracking v2 as an AR extension (fixes the MLRS/M4/mortar bugs).
+- [ ] Projectile tracking v2 as an AR extension (fixes the MLRS/M4/mortar bugs). Live repro 2026-11-22: Malden, Saint Martin → hill 344, real range 2483 m vs. a fixed 5000 m `HDG` guess. Approach:
+  - SQF: the existing impact tracker in `handleFired.sqf` (which already polls the shell every 0.1 s) also sends a `fired_track` put about once per second: projectile id, `getPosASL`, `velocity`.
+  - Backend: relay `fired_track` as a SignalR event (no DLL change; the DLL forwards any put).
+  - Frontend: draw the real shell position, and predict the impact from the latest position + velocity with a drag-free ballistic solve down to the terrain height. Use the elevation grid; Arma artillery shells have no air friction. Rockets become accurate after motor burnout (a few seconds).
+  - Before the first track sample, show only the azimuth line without a fixed-range impact point or ETA, instead of a misleading `HDG` guess.
+  - `fired_impact` stays the final correction.
 - [ ] Turn `ATHENA_DEBUG_FIRED` off by default (it currently logs every tracked shell to the RPT).
 - [ ] GitHub: branch ruleset like Web2, a release-notes template, tag `v1.1.6`, GitHub Releases.
 - [ ] README/About in Web2's structure.
