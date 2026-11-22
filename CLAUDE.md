@@ -111,6 +111,8 @@ Arma launch: `-mod=@AthenaRemastered -filePatching -noBE`.
 
 **Server settings** come only from mission params: `description.ext` → `BIS_fnc_getParamValue` → `put settings` → backend → SignalR (read-only in the browser).
 
+**AR map cache:** `%USERPROFILE%\Documents\AthenaRemastered\MapCache\{world}\` (`roads.json`, `trees.json`, `forests.json`, `locations.json`, `structures.json`, `elevations.json`, plus `last-world.txt`); override with `ATHENA_MAPCACHE_DIR`. `PutWorldInfo()` loads it and only queues exports for missing parts. Before 1.2.0 it lived in `MapCache\` beside the EXE; `MapCacheService` copies that legacy folder over once at startup.
+
 **Athena Desktop cache:** `%USERPROFILE%\Documents\Athena\Maps\{world}\`, files `Objects.txt`, `Trees.txt`, `Roads.txt`, `Forests.txt`, `Locations.txt`, `Map.txt`, `Height/Z*.txt`. CanvasX = worldX, CanvasY = worldSize − worldY.
 
 **Debugging:** RPT at `%LOCALAPPDATA%\Arma 3\Arma3_x64_*.rpt`. Search `AthenaServer`, `Athena Init:`, `Athena Queue:`, `ATHENA_IMPACTDBG` (projectile impact tracker; on by default via `ATHENA_DEBUG_FIRED`).

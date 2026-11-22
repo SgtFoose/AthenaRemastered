@@ -51,7 +51,9 @@ Pop-Location
 # ── 2. Publish backend ───────────────────────────────────────────────────────
 Write-Host '[2/3] Publishing backend ...' -ForegroundColor Yellow
 
-# Preserve existing MapCache (runtime data) across publish
+# Preserve a legacy MapCache (runtime data) across publish. Since 1.2.0 the
+# server keeps its cache in Documents\AthenaRemastered\MapCache and only reads
+# this EXE-side folder once to migrate it, so keep it intact for that.
 $MapCacheDir = Join-Path $PublishDir 'MapCache'
 $MapCacheBackup = Join-Path $Root '.MapCache_backup'
 if (Test-Path $MapCacheDir) {
