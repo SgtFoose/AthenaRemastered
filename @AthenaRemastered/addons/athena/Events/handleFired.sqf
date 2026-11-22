@@ -23,15 +23,22 @@ if (!isNull _last && {_last isKindOf "AllVehicles"}) then {
 };
 };
 
-// Prevent duplicate fired reports: the unit's FiredMan and Fired handlers (and the
-// vehicle's Fired handler) all observe the same projectile.
-// The exitWith must be at the top level of this script: inside an
-// `if (...) then { ... }` block it only leaves that block, so before 1.2.0 the
-// guard never stopped the second report and every shot appeared twice in
-// "Recent Shots".
-if (!isNull _projectile && {_projectile getVariable ["ATHENA_FIRED_SENT", false]}) exitWith {};
+// Safety net against duplicate fired reports. Normally each shot reaches this
+// script once (the unit's FiredMan handler, or the vehicle's Fired handler for
+// gunners Athena doesn't track), but if a projectile still arrives twice, the
+// second report is dropped here.
+// The projectile object itself is remembered in a short list instead of a
+// variable on the projectile: a setVariable guard on the projectile did not stop
+// the duplicates in live tests (1.2.0). The exitWith must stay at the top level
+// of this script; inside an `if (...) then { ... }` block it only leaves that block.
+private _recentShots = missionNamespace getVariable ["ATH_recentFiredProjectiles", []];
+if (!isNull _projectile && {_projectile in _recentShots}) exitWith {};
 if (!isNull _projectile) then {
-        _projectile setVariable ["ATHENA_FIRED_SENT", true, false];
+        _recentShots pushBack _projectile;
+        // Keep the list short: duplicates arrive in the same frame, so the last
+        // 64 projectiles are plenty even for miniguns.
+        if ((count _recentShots) > 64) then { _recentShots deleteRange [0, (count _recentShots) - 64]; };
+        missionNamespace setVariable ["ATH_recentFiredProjectiles", _recentShots];
 };
 
 //set initial values
@@ -92,7 +99,19 @@ if (_turretLen > 0.001) then {
 };
 
 private _weaponText = toLower format ["%1 %2 %3", _weapon, _ammo, _magazine];
-private _isGuided = ((_weaponText find "cruise") >= 0) || {(_weaponText find "missile") >= 0} || {(_weaponText find "sam") >= 0} || {(_weaponText find "at") >= 0};
+// Guided vs. indirect fire is decided from the ammo config, not from substrings.
+// Before 1.2.0 any name containing "at" counted as guided, so the M5 Sandstorm's
+// "rockets_230mm_GAT" was treated as a guided missile: the impact tracker below
+// never ran, no fired_impact was sent and the map never learned the real impact
+// point or time of flight (live test, Malden, 2026-11-22).
+// - artilleryLock = 1: ammo usable by the Artillery Computer (shells, MLRS rockets,
+//   and the Mk41 VLS cruise missile)
+// - irLock / laserLock / airLock / nvLock / manualControl: seeker or guidance
+private _ammoCfg = configFile >> "CfgAmmo" >> _ammo;
+private _isArtilleryAmmo = getNumber (_ammoCfg >> "artilleryLock") > 0;
+private _hasSeeker = (getNumber (_ammoCfg >> "irLock") > 0) || {getNumber (_ammoCfg >> "laserLock") > 0} || {getNumber (_ammoCfg >> "airLock") > 0} || {getNumber (_ammoCfg >> "nvLock") > 0} || {getNumber (_ammoCfg >> "manualControl") > 0};
+// Cruise missiles use the Artillery Computer but are guided, so they stay guided.
+private _isGuided = ((_weaponText find "cruise") >= 0) || {!_isArtilleryAmmo && {_hasSeeker || {(_weaponText find "missile") >= 0}}};
 private _allowTargetSteer = _isGuided;
 private _debugFired = missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true];
 private _maxRange = 8000;
@@ -284,6 +303,7 @@ if (_debugFired) then {
 // and compute an accurate ETA for the linger phase.
 // Only track unguided indirect-fire weapons to avoid spawning a thread per infantry bullet.
 private _isIndirectFire = !_isGuided && (
+        _isArtilleryAmmo ||
         (_weaponText find "mortar")    >= 0 ||
         (_weaponText find "shell")     >= 0 ||
         (_weaponText find "amos")      >= 0 ||

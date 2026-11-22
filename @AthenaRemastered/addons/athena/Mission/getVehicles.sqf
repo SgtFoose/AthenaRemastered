@@ -24,6 +24,9 @@ if (count _vehicles == 0) exitWith { true };
                                 private _unit = _gunner;
                                 if (isNull _unit) then { _unit = driver _veh; };
                                 if (isNull _unit) exitWith {};
+                                // The gunner's own FiredMan handler (getUnits.sqf) already
+                                // reports this shot; only report gunners Athena doesn't track.
+                                if (_unit getVariable ["ATHENA_EVENTS", false]) exitWith {};
                                 [_unit, _weapon, _muzzle, _mode, _ammo, _magazine, _projectile, _veh] call ATH_fnc_HandleFired;
                         };
                 }];

@@ -4,6 +4,45 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Core sync: map-data status box hides itself after loading
+- Owner request (screenshot of "Loaded from cache" on Malden): hide the box. Shared-core change from Web2 (`c05c765`): `cached` / `complete` disappear after 4 s, while `exporting` stays visible. Synced with `sync-core-to-ar.ps1` (`components/ExportStatusOverlay.tsx`, `core-manifest.json`).
+- Note: the owner's screenshot footer still showed `(e15e8a0)`, so that session ran the previous server build. The new `Server\` in `D:\@AthenaRemastered` must be started for the crew-label and version-label fixes.
+- Owner approved the push: branch `fix/fired-dedupe-header-label` pushed, PR #10 → `main`.
+
+### 2026-11-22 — Live test feedback on 1.2.0-test (e15e8a0): duplicate shots, "P:" crew labels, cut-off version label
+- Owner tested `D:\@AthenaRemastered` on Malden. Results:
+  - version label in the header cut off to "v1...."
+  - vehicle labels unchanged (crew showed "P:")
+  - one shot (`srifle_LRR_camo_F`, `B_408_Ball`) still gave two Recent Shots entries
+  - Ground/Pilot map styles don't meet their purpose (added to the backlog)
+  - **OK:** projectile tracking with a laser target works on Malden. The laser-guided shot from the NightHawk drone near Saint Martin was drawn as a dashed line to the laser spot with a counting-down `LASE ETA` label, and the active laze marker was shown.
+  - **Not OK:** unguided rocket/artillery fire without a laze is still way off. Malden, battery at Saint Martin, firing north towards hill 344 north of Dorres. The in-game artillery computer showed range `2483` m and ETA 28 s. AR showed `HDG ETA 31s` with the predicted path running past Blanches to roughly twice that distance.
+    - Cause (`Frontend/src/extensions/projectileTracking.tsx`): without a laze, waypoint or enemy in the fire direction, `estimateTarget` falls back to source `heading`. That places the impact at the profile's fixed `rangeM` along the fire azimuth (rockets 5000 m, artillery 9000 m, ship cannon 14000 m). The ETA comes from a fitted curve (`ballA * d^ballB`). Only after a shell lands does `fired_impact` correct later shots in the same direction, so the first shot of a fire mission is always wrong.
+    - Planned fix: projectile tracking v2 (see backlog). Not part of this branch.
+    - Owner data for this shot. M5 Sandstorm MLRS, `230 mm Rocket`, mode `2200m-2900m`. Artillery Computer: DIST 2411, DIR 17, ALT 140, ETA 28. Actual impact X 5057.54 Y 7858.39 Z 416.0, actual time of flight 23 s. AR showed ETA 31 s and drew the path to the 5000 m `HDG` point near Saint Jean.
+    - Second bug found: `handleFired.sqf` treated any name containing "at" as guided. `rockets_230mm_GAT` therefore counted as a guided missile, the impact tracker never ran, and no `fired_impact` reached the map. Without it, even later rockets of the same fire mission were never corrected.
+    - Fixed in this branch:
+      - guided = "cruise" in the name, or (no `artilleryLock` and (seeker via `irLock`/`laserLock`/`airLock`/`nvLock`/`manualControl`, or "missile" in the name))
+      - indirect fire = not guided and (`artilleryLock` = 1 or the old name list)
+      - laser targets are still used for unguided fire through the frontend's `targetFromLazes`
+      - test PBO repacked to `C:\AthenaRemastered-test` and `D:\@AthenaRemastered` (server unchanged)
+- **Duplicate shots.** Backend → SignalR → frontend is a single path: one PUT gives one `Fired` broadcast, and `useAthenaHub` registers `conn.on('Fired')` once, without StrictMode. The duplicate comes from SQF: for on-foot shots, both the unit's `FiredMan` and its `Fired` handler run. The 1.2.0 guard (`setVariable` on the projectile) didn't stop it live. Fix:
+  - `Mission/getUnits.sqf`: only `FiredMan` is added. It covers on-foot and vehicle-seat shots.
+  - `Mission/getVehicles.sqf`: the vehicle `Fired` handler skips gunners that carry `ATHENA_EVENTS`, since their own `FiredMan` reports the shot. Gunners Athena doesn't track are still reported.
+  - `Events/handleFired.sqf`: the safety net now remembers the last 64 projectile objects in `ATH_recentFiredProjectiles` (`in` compares by object reference) instead of a variable on the projectile.
+- **"P:" crew labels.** The extension (`Extension/json_builder.h`) forwards every callExtension argument as a JSON string. A vehicle's crew list therefore arrives as the text `"[[\"2:345\",\"gunner\"]]"`. `GameController` only accepted a real JSON array, so in game `Crew` was always empty and the core labelled everyone "P:". The earlier simulation sent a real array, which is why it passed.
+  - Fix: new `GameController.ParseCrew` accepts both forms.
+  - The DLL is unchanged, so the BattlEye hash is preserved.
+  - Side effect: the existing "remove vehicle when all crew are dead" logic in `GameStateService` now gets real data.
+- **Version label.** Shared-core CSS fix from Web2 (`fix/header-version-label` @ `1c81c87`), synced with `sync-core-to-ar.ps1` (`styles/app.css`, `core-manifest.json`).
+- Branch `fix/fired-dedupe-header-label`, stacked on `release/v1.2.0` (PR #9 open).
+- Validation: `dotnet build -c Release` OK (0 warnings).
+- Simulation (test build `878ff7e`, put API): `vehicle` with the crew sent as the string `[["2:10","gunner"],["2:11","commander"]]` → `/api/game/state` shows `crew` with both roles. Headless screenshot: the header shows `v1.2.0-test` and `Donate` in full. The duplicate-shot fix is SQF-only and needs the live test.
+- Test package: the owner's D: drive (USB) was no longer present, so the complete mod folder is staged at `C:\AthenaRemastered-test\@AthenaRemastered`. Contents: new unsigned `athena.pbo`, DLL `3DE7F325…` unchanged, `Server\` test build `878ff7e`, and `TEST-INSTRUCTIONS.txt` explaining how to verify via the `FIRED PUT received` console line.
+- The v1.2.0 draft release asset is now outdated; it will be rebuilt after these fixes are merged and the PBO is signed.
+- D: drive back: `C:\AthenaRemastered-test\@AthenaRemastered` mirrored to `D:\@AthenaRemastered` (PBO hash and bundle SHA verified).
+- Note: the test build label `878ff7e` refers to a pre-amend commit. Its code is identical to `23b75d6`; only `WORKLOG.md` differs.
+
 ### 2026-11-22 — PRs merged; test builds of main on D:
 - Owner merged Web2 #8, #9 and AR #4–#8 (merge commits). Local `main` fast-forwarded in both repos (Web2 `d3278fb`, AR `e15e8a0`); merged local branches deleted.
 - AR test package `D:\AthenaRemastered-test` (`v1.2.0-test (e15e8a0)`):
@@ -255,7 +294,13 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [~] SQF: main-menu guard in `init.sqf` (2026-11-22, is3DEN + findDisplay 0; verify live via the RPT).
 - [x] Backend: skip the auto world export for cached worlds. It already did when MapCache was complete; the misleading "Rendering map" message was fixed (2026-11-22).
 - [ ] Backend: forest cell size (16) + Y-flip fix (as in Web2's bridge).
-- [ ] Projectile tracking v2 as an AR extension (fixes the MLRS/M4/mortar bugs).
+- [ ] Projectile tracking v2 as an AR extension (fixes the MLRS/M4/mortar bugs). Live repro 2026-11-22: Malden, Saint Martin → hill 344, real range 2483 m vs. a fixed 5000 m `HDG` guess. Approach:
+  - SQF: the existing impact tracker in `handleFired.sqf` (which already polls the shell every 0.1 s) also sends a `fired_track` put about once per second: projectile id, `getPosASL`, `velocity`.
+  - Backend: relay `fired_track` as a SignalR event (no DLL change; the DLL forwards any put).
+  - Frontend: draw the real shell position, and predict the impact from the latest position + velocity with a drag-free ballistic solve down to the terrain height. Use the elevation grid; Arma artillery shells have no air friction. Rockets become accurate after motor burnout (a few seconds).
+  - Before the first track sample, show only the azimuth line without a fixed-range impact point or ETA, instead of a misleading `HDG` guess.
+  - `fired_impact` stays the final correction.
 - [ ] Turn `ATHENA_DEBUG_FIRED` off by default (it currently logs every tracked shell to the RPT).
 - [ ] GitHub: branch ruleset like Web2, a release-notes template, tag `v1.1.6`, GitHub Releases.
 - [ ] README/About in Web2's structure.
+- [ ] Map Style Ground / Pilot rework (shared core, implemented in Web2 and synced; owner request 2026-11-22): **Ground** = height map for ground troops, **Pilot** = black-and-white height map (dark = low, light = high) so pilots see peaks and valleys at a glance. 2D is fine as is.

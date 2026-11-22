@@ -77,21 +77,8 @@ public class GameController : ControllerBase
 
             case "vehicle":
             {
-                var crew = new List<CrewMember>();
-                if (args.Count > 2 && args[2] is System.Text.Json.JsonElement je
-                    && je.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    foreach (var item in je.EnumerateArray())
-                    {
-                        var arr = item.EnumerateArray().ToList();
-                        if (arr.Count >= 2)
-                            crew.Add(new CrewMember
-                            {
-                                UnitId = arr[0].GetString() ?? "",
-                                Role   = arr[1].GetString() ?? ""
-                            });
-                    }
-                }
+                // args: id, class, crew ([[unitNetId, fullCrewRole], ...] from getVehicles.sqf)
+                var crew = args.Count > 2 ? ParseCrew(args[2]) : [];
                 _state.PutVehicle(S(0), S(1), crew);
                 break;
             }
@@ -227,6 +214,61 @@ public class GameController : ControllerBase
                 _log.LogWarning("Unknown put fn: {Fn}", fn);
                 break;
         }
+    }
+
+    /// <summary>
+    /// Parses a vehicle's crew list (<c>[[unitNetId, role], ...]</c>, role = Arma
+    /// <c>fullCrew</c> seat such as "driver", "gunner", "commander", "turret", "cargo").
+    /// </summary>
+    /// <remarks>
+    /// The extension (<c>Extension/json_builder.h</c>) forwards every callExtension
+    /// argument as a JSON <i>string</i>, so in a live game the crew arrives as the text
+    /// <c>"[[\"2:345\",\"gunner\"]]"</c> (Arma's <c>str</c> of the array), not as a JSON
+    /// array. Before 1.2.0 only real arrays were accepted, so the crew list was always
+    /// empty in game and the map labelled every crew member "P:" (passenger).
+    /// Both forms are accepted here; the DLL stays unchanged (BattlEye hash).
+    /// </remarks>
+    /// <param name="arg">The raw third "vehicle" argument (a <see cref="System.Text.Json.JsonElement"/>).</param>
+    /// <returns>The crew members; empty when the value is missing or malformed.</returns>
+    private List<CrewMember> ParseCrew(object? arg)
+    {
+        var crew = new List<CrewMember>();
+        if (arg is not System.Text.Json.JsonElement je) return crew;
+
+        System.Text.Json.JsonDocument? parsed = null;
+        try
+        {
+            var list = je;
+            if (je.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                var text = je.GetString();
+                if (string.IsNullOrWhiteSpace(text)) return crew;
+                parsed = System.Text.Json.JsonDocument.Parse(text);
+                list = parsed.RootElement;
+            }
+            if (list.ValueKind != System.Text.Json.JsonValueKind.Array) return crew;
+
+            foreach (var item in list.EnumerateArray())
+            {
+                if (item.ValueKind != System.Text.Json.JsonValueKind.Array) continue;
+                var arr = item.EnumerateArray().ToList();
+                if (arr.Count < 2) continue;
+                crew.Add(new CrewMember
+                {
+                    UnitId = arr[0].ValueKind == System.Text.Json.JsonValueKind.String ? arr[0].GetString() ?? "" : arr[0].ToString(),
+                    Role   = arr[1].ValueKind == System.Text.Json.JsonValueKind.String ? arr[1].GetString() ?? "" : arr[1].ToString(),
+                });
+            }
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            _log.LogDebug(ex, "Ignoring malformed vehicle crew list");
+        }
+        finally
+        {
+            parsed?.Dispose();
+        }
+        return crew;
     }
 
     // ── GET request (extension polls this) ───────────────────────────────────
