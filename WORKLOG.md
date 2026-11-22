@@ -19,7 +19,12 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - Live test of the full package `v1.2.0-test (4ca0486)` (server + UI + PBO; PC and iPad both show `4ca0486`):
   - iPad without F5: M4 Scorcher track and Fire Control panel shown live (`NightHawk FREE HDG`); the client-clock fix is confirmed
   - M4: after the first impact, shot 2's ETA matches the in-game Artillery Computer (2355 m, ETA 47 s), and the target is the real impact point (`4664,5294`) instead of the map-edge HDG guess; the impact correction is confirmed
-  - still open: M5 correction, reconnect after the tablet screen was off
+  - M5 Sandstorm `R_230mm_HE`, same target (Artillery Computer: 2378 m, ETA 29 s):
+    - shot 1 ETA 38 s (HDG 5000 m guess)
+    - shot 2 ETA 26 s, with the target moved to the real impact point `4669,4960`
+    - the weapon-`artilleryLock` fix works; `fired_impact` is now sent for the M5
+    - 26 s is the measured time of flight of shot 1; the in-game 29 s is the computer's estimate (an earlier test measured 23 s vs. 28 s shown)
+  - still open: reconnect after the tablet screen was off
 
 ### 2026-11-22 — CRITICAL: v1.2.0 never starts in a mission (main-menu guard) + Bus mod conflict
 - Perf live test: the server received no PUTs at all. The owner's RPTs (copied to the USB drive) show for **Workshop v1.2.0** and the perf test PBO, inside the real mission `Editor Athena Remastered v1.1.7.Malden`:
