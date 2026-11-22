@@ -2,6 +2,14 @@
 # Output: publish/ (repo root; the layout was flattened on 2026-11-22)
 #   AthenaRemastered.Server.exe  (single exe, no .NET runtime required)
 #   wwwroot/                     (built frontend)
+#
+# Usage:
+#   .\publish.ps1            test build: the UI shows "v<version>-test (<git sha>)"
+#   .\publish.ps1 -Release   release build: the UI shows only "v<version>"
+# (The label is injected by Frontend/vite.config.ts based on ATHENA_RELEASE.)
+param(
+    [switch]$Release
+)
 
 $ErrorActionPreference = 'Stop'
 $Root        = $PSScriptRoot
@@ -33,7 +41,11 @@ Push-Location $FrontendDir
 if (!(Test-Path 'node_modules')) { npm install }
 # Add local node_modules/.bin to PATH so tsc/vite resolve
 $env:PATH = (Join-Path $FrontendDir 'node_modules\.bin') + ';' + $env:PATH
+# Release builds hide the build label; everything else is a traceable test build.
+if ($Release) { $env:ATHENA_RELEASE = '1'; Write-Host '      release build (no test label)' -ForegroundColor DarkGray }
+else          { Remove-Item Env:ATHENA_RELEASE -ErrorAction SilentlyContinue; Write-Host '      test build (UI shows version + test + commit)' -ForegroundColor DarkGray }
 npm run build
+Remove-Item Env:ATHENA_RELEASE -ErrorAction SilentlyContinue
 Pop-Location
 
 # ── 2. Publish backend ───────────────────────────────────────────────────────

@@ -4,6 +4,22 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Version 1.2.0 (in development) + build label on test builds
+- PR #2 (shared UI core) merged by the owner as `c1a790e`; branch deleted.
+- **Test build for the owner**, built from `main` with `publish.ps1`:
+  - first run of `publish.ps1` on the flattened layout: OK, 105.8 MB EXE; it skips the 2 non-existent wwwroot targets
+  - smoke test: serves the new UI, SignalR negotiate 200
+  - copied to `D:\AthenaRemastered-test\` (SHA256 `882C1830…`) with `TEST-INSTRUCTIONS.txt`
+  - restored the tracked `@AthenaRemastered/Server/wwwroot` afterwards
+- Owner feedback: the test build said **v1.1.6**, the same as the Workshop version. Owner decisions: version **1.2.0**, and all test builds show **version + test + commit** as standard, in both apps.
+  - The owner's screenshot also showed "Disconnected / Connecting to server…"; asked whether it persists during a mission.
+- Changes (branch `chore/version-1.2.0-build-label`):
+  - Version 1.2.0 in all checklist files: `Frontend/src/version.ts`, `Frontend/package.json` (+ lock via `npm version`), `Backend/AthenaRemastered.Server.csproj`, `Extension/config.h`, `@AthenaRemastered/mod.cpp`. The DLL binary is not rebuilt yet (the shipped DLL is still 1.1.6).
+  - `CHANGELOG.md`: `[1.2.0] - Unreleased` entry with a BattlEye Status section.
+  - Build label: `Frontend/vite.config.ts` and new `Frontend/src/build-info.d.ts` copied from Web2 (identical); `appConfig.ts` exports `APP_BUILD` and `APP_BUILD_DATE`. Core re-synced from Web2 `a6f63ae` (`core/utils/version.ts`, `SidebarHeader`, `Sidebar` footer).
+  - `publish.ps1`: new `-Release` switch (`ATHENA_RELEASE=1`); the default is a test build.
+  - `CLAUDE.md` release checklist updated.
+
 ### 2026-11-22 — Frontend: adopt the shared UI core from Athena Web 2 (Phase 2 step 2)
 - PR #1 (layout flatten + process files) merged by the owner as `b640b5d`. Local `main` updated, branch deleted. New branch `feat/adopt-shared-core`.
 - **Core copied** with Web2's `scripts/sync-core-to-ar.ps1` into `Frontend/src/core/`, with a manifest `core-manifest.json` (current source: Web2 commit `6476a24`). Re-syncs on this branch (after the Web2 fixes below) updated only the changed files (2, then 1), and the drift check passed (no hand edits in AR's core).
