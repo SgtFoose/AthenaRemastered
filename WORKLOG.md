@@ -20,6 +20,10 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - `CHANGELOG.md` 1.2.1: added as the first fix
 - **Bus mod conflict:** the owner's launch line always loads `@Athena - An Arma 2nd Screen Application` together with AR. Both addons use the `athena` name and `\athena\` paths, so one overrides the other's scripts. Backlog: give AR its own addon name/prefix, and guard against a double init.
 - Owner instructions never said to disable Bus's mod; AR's README/Workshop text also doesn't mention it (to add).
+- **Live result, test PBO `9e8d06d`** (AR only, Bus mod off, `-noBE`, Play Scenario from Eden):
+  - Athena connects; the iPad shows Malden live with 15 groups, 66 units and 15 vehicles
+  - FPS 17 / GPU 23% / CPU 63%, vs. 17 FPS / CPU 76% without Athena: no measurable FPS cost with 66 units
+  - the init fix and the 4 Hz throttle are confirmed
 
 ### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
 - A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
