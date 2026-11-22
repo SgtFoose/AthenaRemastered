@@ -19,6 +19,10 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - Build label: `Frontend/vite.config.ts` and new `Frontend/src/build-info.d.ts` copied from Web2 (identical); `appConfig.ts` exports `APP_BUILD` and `APP_BUILD_DATE`. Core re-synced from Web2 `a6f63ae` (`core/utils/version.ts`, `SidebarHeader`, `Sidebar` footer).
   - `publish.ps1`: new `-Release` switch (`ATHENA_RELEASE=1`); the default is a test build.
   - `CLAUDE.md` release checklist updated.
+- Owner observation: **the UI stays "active" when the game or the server closes.** Causes (code reading):
+  - server closes: `adapter/useAthenaHub.ts` sets `connected=false` only in `onclose`, which `withAutomaticReconnect()` fires only after all retries fail. There's no `onreconnecting` handler, so the UI keeps "Connected" and shows stale data.
+  - game closes, server keeps running: the backend never clears the mission (no staleness timeout like Web2's live-world expiry), so `frame.mission` stays set and the UI stays live.
+  - Added to the backlog. The "Disconnected" status in the owner's screenshot is still unclear; owner will check later.
 
 ### 2026-11-22 — Frontend: adopt the shared UI core from Athena Web 2 (Phase 2 step 2)
 - PR #1 (layout flatten + process files) merged by the owner as `b640b5d`. Local `main` updated, branch deleted. New branch `feat/adopt-shared-core`.
@@ -110,6 +114,9 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [ ] Steam Workshop pages: align AR and Web2. Names differ ("Athena Remastered" vs "@AthenaWeb2"), Web2's tags are odd (Animation, Editor Extension, Equipment, Terrain; AR: Mechanics), and the description styles differ. Owner request 2026-11-22, screenshots from Arma 3 Publisher.
 - [ ] Optional: offline world picker for AR (`CAPABILITIES.worldPicker`) over AR's cached worlds.
 - [ ] Split `useRecentShooterIds` out of `extensions/projectileTracking.tsx` (react-refresh lint).
+- [ ] UI goes back to the welcome/disconnected state when the server or game stops:
+  - frontend: handle SignalR `onreconnecting` → `connected=false`, `onreconnected` → true
+  - backend: expire the live mission after N seconds without frames (like Web2's live-world timeout) and broadcast it
 - [ ] Backend: drop the startup world auto-load.
 - [ ] SQF: main-menu guard in `init.sqf`.
 - [ ] Backend: skip the auto world export for cached worlds.
