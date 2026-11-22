@@ -4,6 +4,10 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Core sync: map-data status box hides itself after loading
+- Owner request (screenshot of "Loaded from cache" on Malden): hide the box. Shared-core change from Web2 (`c05c765`): `cached` / `complete` disappear after 4 s, while `exporting` stays visible. Synced with `sync-core-to-ar.ps1` (`components/ExportStatusOverlay.tsx`, `core-manifest.json`).
+- Note: the owner's screenshot footer still showed `(e15e8a0)`, so that session ran the previous server build. The new `Server\` in `D:\@AthenaRemastered` must be started for the crew-label and version-label fixes.
+
 ### 2026-11-22 — Live test feedback on 1.2.0-test (e15e8a0): duplicate shots, "P:" crew labels, cut-off version label
 - Owner tested `D:\@AthenaRemastered` on Malden. Results:
   - version label in the header cut off to "v1...."
