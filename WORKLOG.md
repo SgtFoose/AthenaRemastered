@@ -30,6 +30,14 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - projectile timing compares the server timestamp `ev.at` with the client clock `Date.now()`, so iPad clock skew shifts or hides tracks
   - Safari throttles WebSockets/SignalR and timers more aggressively when the tab or screen is inactive
   - Added to the backlog.
+- Owner: the **laze marker** is much better synced and more accurate than the projectile tracks. That fits the clock hypothesis: lazes are server positions drawn as-is in every frame, while projectile tracks are predicted on the client from server timestamp + client clock. Projectile v2's live position sampling makes tracks behave like lazes (real positions).
+- Owner approved push + PR, the .NET 9 SDK and the same `main` protection as Web2:
+  - pushed `chore/flatten-repo-layout` and opened **PR #1**: https://github.com/SgtFoose/AthenaRemastered/pull/1
+  - **Ruleset:**
+    - I created a new ruleset "Protect Main" (id 27841089) **without first checking the existing ones**. AR already had "Protect master" (id 27794307: PR required with **1 approval**, no deletion or force-push). Rulesets stack, so PR #1 showed `BLOCKED`, because authors can't approve their own PR.
+    - Fix: updated the existing "Protect master" to 0 required approvals (same as Web2's decision) and deleted my duplicate.
+    - Result: exactly one ruleset (deletion, non_fast_forward, pull_request approvals=0; admin bypass), and PR #1 `mergeStateStatus: CLEAN`.
+    - Lesson: always list existing rulesets before creating one.
 
 ### 2026-11-22 — Live test findings (owner, AR v1.1.6 from Steam Workshop, Malden)
 - **Startup map:** the backend auto-loads the last-used cached world in the `GameStateService` constructor (`LoadCachedWorld()`), so the UI shows Malden while Arma is still in the main menu, which looks like a stuck game. Planned: drop the auto-load and show the shared core's welcome screen.
