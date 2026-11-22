@@ -34,6 +34,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - sign `athena.pbo` with the AthenaRemastered key (`athena.pbo.AthenaRemasteredKey.bisign`), rebuild the zip and replace the draft asset; compare the local SHA256 with the asset digest
   - set the CHANGELOG date, merge `release/v1.2.0`, then publish the draft (creates tag `v1.2.0` on `main`)
   - Workshop update (optional)
+- Owner approved the push: branch `release/v1.2.0` pushed, PR #9 → `main`.
 
 ### 2026-11-22 — Pushed branches and opened stacked PRs
 - Owner approved the push. `gh auth status`: SgtFoose; commit identity is the SgtFoose noreply address in both repos.
