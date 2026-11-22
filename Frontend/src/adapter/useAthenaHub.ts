@@ -171,8 +171,12 @@ export function useAthenHub() {
     conn.on('ServerSettings', (s: ServerSettings) => setServerSettings(s));
     conn.on('ExportStatus',   (s: ExportStatus)   => setExportStatus(s));
 
-    conn.onclose(()      => setConnected(false));
-    conn.onreconnected(() => setConnected(true));
+    // withAutomaticReconnect() only fires onclose after ALL retries failed, which
+    // left the UI showing "Connected" (and stale units) for a long time after the
+    // server stopped. Treat "reconnecting" as disconnected right away.
+    conn.onreconnecting(() => setConnected(false));
+    conn.onclose(()        => setConnected(false));
+    conn.onreconnected(()  => setConnected(true));
 
     // withAutomaticReconnect() only retries after a successful initial connect.
     // This loop retries the very first connection attempt until the backend is up.

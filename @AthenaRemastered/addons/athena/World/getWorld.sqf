@@ -6,9 +6,14 @@ ATHENA_FORESTS_DONE = false;
 ATHENA_LOCS_DONE    = false;
 ATHENA_TREES_DONE   = false;
 
-//alert user with prominent in-game hint
-hint parseText format ["<t size='1.2' color='#FFC200'>Athena Remastered</t><br/>Rendering map for: <t color='#FFFFFF'>%1</t><br/><t size='0.8' color='#AAAAAA'>This may take a few minutes...</t>", worldName];
-systemChat format ["Athena: Rendering map geometry for '%1'", worldName];
+//Tell the user which map is being linked. This script only reads world config
+//(cheap). The backend then loads cached map geometry, or queues the heavy
+//export scripts (roads, trees, forests, structures, elevations), which
+//announce themselves in systemChat. The old wording "Rendering map ... this
+//may take a few minutes" appeared on every mission start, even when everything
+//was cached, and made users think the game was busy or stuck (2026-11-22).
+hint parseText format ["<t size='1.2' color='#FFC200'>Athena Remastered</t><br/>Loading map data for: <t color='#FFFFFF'>%1</t>", worldName];
+systemChat format ["Athena: Loading map data for '%1' (cached maps load instantly)", worldName];
 
 //get world properties
 _nameDisplay = ((configFile >> "cfgWorlds" >> worldName >> "description") call BIS_fnc_getCfgData);

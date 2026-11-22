@@ -5,6 +5,21 @@ diag_log "Athena Init: script started";
 //check for dedicated server
 if (!hasInterface) exitWith { diag_log "Athena Init: no interface, exiting"; };
 
+//Only run in a real mission. This script is a postInit function, so Arma also
+//runs it in the Eden editor and in the main menu's background scene. There it
+//connected to the backend and triggered a full world export of the editor or
+//menu world (seen live on Stratis in Eden and on Malden in the main menu,
+//2026-11-22), which stalled the game and showed a map although no mission
+//was being played.
+//Diagnostics for verifying the checks in the RPT: is3DEN, the main menu
+//display (IDD 0) and the mission display (IDD 46).
+diag_log format ["Athena Init: context is3DEN=%1 mainMenu=%2 missionDisplay=%3 missionName=%4",
+	is3DEN, !isNull (findDisplay 0), !isNull (findDisplay 46), missionName];
+//Eden editor: editing, not playing (an editor preview does play the mission, and is3DEN is false there).
+if (is3DEN) exitWith { diag_log "Athena Init: Eden editor, not starting"; };
+//Main menu background scene: the main menu display (RscDisplayMain, IDD 0) is open.
+if (!isNull (findDisplay 0)) exitWith { diag_log "Athena Init: main menu, not starting"; };
+
 //check for player
 diag_log "Athena Init: waiting for player...";
 waitUntil {!isNull player};
