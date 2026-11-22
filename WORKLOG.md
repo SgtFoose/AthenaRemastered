@@ -4,6 +4,16 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — docs: README Latest Release for v1.2.0 with owner photos
+- AR #11 and Web2 #12 merged; local `main` in both repos equals the published branch heads (`git diff` empty), and the merged branches were deleted.
+- `README.md` "Latest Release" rewritten for v1.2.0: an intro on the classic Athena look, two photos side by side with a caption, a "What's new" list, and Workshop / GitHub Releases / CHANGELOG links. The v1.1.6 screenshots moved into a collapsible `<details>` block.
+- Images from the owner's live-test phone photos (Malden):
+  - `Images/Athena Remastered v1.2.0 Map.jpg` (Blanches / La Rivière)
+  - `Images/Athena Remastered v1.2.0 Laser Projectile Tracking.jpg` (LASE ETA from Saint Martin)
+  - re-encoded to 1000 px wide JPEG (q85, ~0.5 MB each); redrawing into a new bitmap drops the phone's EXIF metadata (location, device)
+  - the photo with the old blue NATO squares was not used
+- No real map cache on this machine, so clean screenshots could not be generated here; replace the photos with real screenshots later if wanted.
+
 ### 2026-11-22 — Follow-up PR after an early merge
 - AR #10 was merged before the last 7 commits were pushed (server dedupe, silhouettes, v1.2.0 release docs, logs), so `main` lacked code that shipped to the Workshop. Follow-up PR #11 → `main` brings `main` in line with the published v1.2.0 before the GitHub release is tagged.
 

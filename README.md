@@ -19,14 +19,35 @@
 
 ## Latest Release
 
+### v1.2.0 — the classic Athena look, rebuilt
 
+Athena Remastered v1.2.0 brings the map renderer of [Athena Web 2](https://github.com/SgtFoose/Athena-Web-2) to Athena Remastered. The map now looks like Bus's original Athena Desktop: the same colours, smoothed coastlines and contour lines, airport surfaces, individual trees, and the classic Athena vehicle silhouettes. Your units and groups sit on top with clear labels.
 
-Athena Remastered v1.2.0 brings the map rendering of Athena Web 2 to Athena Remastered: classic Athena colours, smoothed coastlines and contours, the classic vehicle silhouettes, I-TGT target capture and a tablet layout. Exported maps are now kept across updates, the forest overlay matches Athena Desktop, and duplicate shots and crew labels are fixed. See [CHANGELOG.md](CHANGELOG.md) for details. Previous release: [v1.1.6 feature overview](docs/v1.1.6-preview.md).
+<p align="center">
+  <img src="Images/Athena%20Remastered%20v1.2.0%20Map.jpg" alt="Athena Remastered v1.2.0 map of Malden around Blanches and La Rivière, with trees, roads, buildings and labelled units" width="420">
+  &nbsp;
+  <img src="Images/Athena%20Remastered%20v1.2.0%20Laser%20Projectile%20Tracking.jpg" alt="Athena Remastered v1.2.0 projectile tracking: a laser-guided shot from Saint Martin with its live LASE ETA label" width="420">
+</p>
+<p align="center"><em>Left: the new map look on Malden. Right: a laser-guided shot tracked live from the battery at Saint Martin to the laser spot, with a counting-down ETA.</em></p>
 
-![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
+**What's new**
+- **Classic Athena map** — Athena Desktop colours, smoothed coastlines and contours, airport surfaces, trees and vehicle silhouettes
+- **I-TGT target capture** — press **T** or the middle mouse button (**SAVE TGT** on a tablet) to store a map position as a target
+- **Made for tablets** — collapsible sidebars and a layout that works on a phone or tablet next to your keyboard
+- **Maps stay exported** — exported maps live in `Documents\AthenaRemastered\MapCache`, so an update no longer means exporting every map again
+- **Accurate forests** — with an Athena Desktop export the forest overlay matches Athena Desktop and Athena Web 2 exactly
+- **Fixes** — one Recent Shots entry per shot, real crew seats (D: / G: / C:), no map in the main menu or editor, and impact tracking for the M5 Sandstorm and other artillery
+
+Get it from the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3687225607) or the [GitHub Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page. Full details are in the [CHANGELOG](CHANGELOG.md).
 
 Athena Remastered is a real-time tactical tracker that streams your Arma 3 mission to a second screen — tablet, phone, or any browser on your local network. It renders live unit positions, vehicles, groups, terrain, and events across all visible sides directly from the game engine.
 
+<details>
+<summary>Screenshots from v1.1.6 (Active Lazes, Projectile Tracking, map styles)</summary>
+
+See also the [v1.1.6 feature overview](docs/v1.1.6-preview.md).
+
+![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 ![Athena Remastered Active Lazes and Projectile Tracking 2](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking%202.png)
 ![Athena Remastered Active Lazes](Images/Athena%20Remastered%20Active%20Lazes.png)
 ![Athena Remastered Forest Overlay](Images/Athena%20Remastered%20Forest%20Overlay.png)
@@ -35,6 +56,8 @@ Athena Remastered is a real-time tactical tracker that streams your Arma 3 missi
 ![Athena Remastered Map Style Pilot](Images/Athena%20Remastered%20Map%20Style%20Pilot.png)
 ![Athena Remastered Mouse Coordinates](Images/Athena%20Remastered%20Mouse%20Coordinates.png)
 ![Athena Remastered Objects Rendering](Images/Athena%20Remastered%20Objects%20Rendering.png)
+
+</details>
 
 ## Migration Status
 
