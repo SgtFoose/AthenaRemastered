@@ -7,6 +7,18 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
+## [1.2.1] - Unreleased (in development)
+
+### Fixed
+- FPS loss during missions: live position updates ran on every frame, with one blocking call to the server per unit and vehicle. They now run at most 4 times per second, like Bus's original relay. Mission makers can change the interval with `missionNamespace setVariable ["ATHENA_UPDATE_INTERVAL", <seconds>]`.
+- The game froze while exporting a large map: the terrain-height export looped over every metre of the map to find a few thousand sample points. It now steps directly from sample to sample (same points).
+- Per-shot debug logging (`ATHENA_DEBUG_FIRED`) is now off by default
+
+Thanks to Mrakos for the performance analysis on the Steam Workshop.
+
+### BattlEye Status
+- Not Submitted: `AthenaServer_x64.dll` unchanged
+
 ## [1.2.0] - 2026-11-22
 
 ### Added

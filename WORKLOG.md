@@ -4,6 +4,22 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
+- A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
+  - **per-frame work: confirmed, the main cost.** `monitorArma.sqf` ran `MissionTime` + `MissionUpdates` + `updateend` in an `EachFrame` handler, with one blocking `callExtension` (synchronous HTTP to the local server) per tracked unit and vehicle, every frame.
+  - **elevation loop: confirmed, worse than reported.** `getElevations.sqf` iterated every metre in X and Y and filtered with `mod` (~164M iterations on a 12.8 km map). It only runs during a world export.
+  - **long-range raycast: partly.** `getUpdates.sqf` casts a 12 km `lineIntersectsSurfaces` ray, but only for units with the laser on and no `laserTarget`. Throttling the update rate covers it.
+  - **debug logging on by default: confirmed** (`ATHENA_DEBUG_FIRED` default `true`).
+  - **trees re-plotted on load: outdated.** Since 1.2.0 the map cache in `Documents\AthenaRemastered\MapCache` is reused.
+- Fixes (branch `fix/perf-quick-wins`, stacked on `docs/readme-v1.2.0` / PR #12):
+  - `monitorArma.sqf`: the `EachFrame` handler returns early until `ATH_nextUpdateTick`; updates run every `ATHENA_UPDATE_INTERVAL` s (default 0.25 = 4 Hz, like Bus's relay polling)
+  - `World/getElevations.sqf`: loops step by the sample size; same sample points, including the stop edge
+  - `Events/handleFired.sqf`: `ATHENA_DEBUG_FIRED` defaults to `false` (5 places)
+  - `CHANGELOG.md`: new `[1.2.1] - Unreleased` section, crediting the reporter
+- Validation:
+  - a PowerShell replica of the old and new elevation loops gives identical point lists for 7 regions (incl. non-multiple start/stop and single-point regions)
+  - the SQF itself needs a live test: an FPS comparison on a busy mission, plus a world export on a large map
+
 ### 2026-11-22 — docs: README Latest Release for v1.2.0 with owner photos
 - AR #11 and Web2 #12 merged; local `main` in both repos equals the published branch heads (`git diff` empty), and the merged branches were deleted.
 - `README.md` "Latest Release" rewritten for v1.2.0: an intro on the classic Athena look, two photos side by side with a caption, a "What's new" list, and Workshop / GitHub Releases / CHANGELOG links. The v1.1.6 screenshots moved into a collapsible `<details>` block.
@@ -368,7 +384,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - Frontend: draw the real shell position, and predict the impact from the latest position + velocity with a drag-free ballistic solve down to the terrain height. Use the elevation grid; Arma artillery shells have no air friction. Rockets become accurate after motor burnout (a few seconds).
   - Before the first track sample, show only the azimuth line without a fixed-range impact point or ETA, instead of a misleading `HDG` guess.
   - `fired_impact` stays the final correction.
-- [ ] Turn `ATHENA_DEBUG_FIRED` off by default (it currently logs every tracked shell to the RPT).
+- [x] Turn `ATHENA_DEBUG_FIRED` off by default (done 2026-11-22, branch `fix/perf-quick-wins`).
 - [ ] GitHub: branch ruleset like Web2, a release-notes template, tag `v1.1.6`, GitHub Releases.
 - [ ] README/About in Web2's structure.
 - [ ] Map Style Ground / Pilot rework (shared core, implemented in Web2 and synced; owner request 2026-11-22): **Ground** = height map for ground troops, **Pilot** = black-and-white height map (dark = low, light = high) so pilots see peaks and valleys at a glance. 2D is fine as is.

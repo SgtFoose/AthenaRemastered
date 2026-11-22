@@ -113,7 +113,10 @@ private _hasSeeker = (getNumber (_ammoCfg >> "irLock") > 0) || {getNumber (_ammo
 // Cruise missiles use the Artillery Computer but are guided, so they stay guided.
 private _isGuided = ((_weaponText find "cruise") >= 0) || {!_isArtilleryAmmo && {_hasSeeker || {(_weaponText find "missile") >= 0}}};
 private _allowTargetSteer = _isGuided;
-private _debugFired = missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true];
+// Per-shot RPT diagnostics (ATHENA_FIREDDBG / ATHENA_IMPACTDBG). Off by default since 1.2.1:
+// logging every shot adds overhead (community report, 2026-11-22). Enable with
+//   missionNamespace setVariable ["ATHENA_DEBUG_FIRED", true];
+private _debugFired = missionNamespace getVariable ["ATHENA_DEBUG_FIRED", false];
 private _maxRange = 8000;
 if ((_weaponText find "cruise") >= 0) then {
         _maxRange = 20000;
@@ -339,7 +342,7 @@ if (_isIndirectFire) then {
                 if (isNull _proj) then {
                         sleep 0.1;
                         private _candidates = nearestObjects [_shooterPos, [_ammo], 600];
-                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true])) then {
+                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", false])) then {
                                 diag_log format [
                                         "ATHENA_IMPACTDBG|stage=fallback|unit=%1|vehicle=%2|weapon=%3|ammo=%4|candidates=%5",
                                         _idUnit,
@@ -352,7 +355,7 @@ if (_isIndirectFire) then {
                         if (count _candidates > 0) then { _proj = _candidates select 0; };
                 };
                 if (isNull _proj) exitWith {
-                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true])) then {
+                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", false])) then {
                                 diag_log format [
                                         "ATHENA_IMPACTDBG|stage=abort-null|unit=%1|vehicle=%2|weapon=%3|muzzle=%4|ammo=%5",
                                         _idUnit,
@@ -371,7 +374,7 @@ if (_isIndirectFire) then {
                 // Only report if the shell actually hit (not timed-out)
                 if ((time - _tFired) < 200) then {
                         private _tof = time - _tFired;
-                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true])) then {
+                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", false])) then {
                                 diag_log format [
                                         "ATHENA_IMPACTDBG|stage=send|unit=%1|vehicle=%2|weapon=%3|muzzle=%4|x=%5|y=%6|tof=%7",
                                         _idUnit,
@@ -394,7 +397,7 @@ if (_isIndirectFire) then {
                                 _tof
                         ]];
                 } else {
-                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true])) then {
+                        if ((missionNamespace getVariable ["ATHENA_DEBUG_FIRED", false])) then {
                                 diag_log format [
                                         "ATHENA_IMPACTDBG|stage=timeout|unit=%1|vehicle=%2|weapon=%3|muzzle=%4",
                                         _idUnit,
