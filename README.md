@@ -111,11 +111,11 @@ If you do not see the `!Workshop` folder in File Explorer, Windows is hiding it:
 
 The server EXE is fully self-contained (no .NET runtime or Node.js needed). On other devices on your network, open `http://<your-pc-ip>:5000`.
 
-### Alternative: Pre-Built EXE (without Workshop)
+### Alternative: GitHub Release (without Workshop)
 
-1. Download `AthenaRemastered.Server.exe` from the [Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page
-2. Copy the `@AthenaRemastered` mod folder into your Arma 3 directory
-3. Run the server, open the browser, launch Arma 3 with `-mod=@AthenaRemastered -filePatching`
+1. Download `AthenaRemastered-v<version>.zip` from the [Releases](https://github.com/SgtFoose/AthenaRemastered/releases) page, unblock it (Properties → Unblock) and extract it
+2. Move the `@AthenaRemastered` folder (mod + `Server\`) into your Arma 3 directory and add it in the Launcher via **Mods → Add local mod...** (or `-mod=@AthenaRemastered`)
+3. Run `@AthenaRemastered\Server\AthenaRemastered.Server.exe`, open `http://localhost:5000`, launch Arma 3 with `-noBE`
 
 ---
 
