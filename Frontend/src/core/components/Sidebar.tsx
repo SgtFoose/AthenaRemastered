@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
 import type { GameFrame, Group, Unit, MapLocation, ServerSettings } from '../types/game';
-import type { LayerVisibility, RenderMode } from '../App';
-import { APP_VERSION } from '../version';
+import type { LayerVisibility, RenderMode } from '../types/ui';
+import { APP_VERSION, CAPABILITIES } from '../../appConfig';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+//  Helpers 
 
 function formatXY(posX: number, posY: number): string {
   return `X:${posX.toFixed(2)} Y:${posY.toFixed(2)}`;
@@ -19,7 +19,7 @@ function sideColor(side: string): string {
   }
 }
 
-// ── Styles ───────────────────────────────────────────────────────────────────
+//  Styles 
 
 const tabBarStyle: React.CSSProperties = {
   display: 'flex', gap: 0, background: '#0d0d18', borderBottom: '1px solid #222',
@@ -43,7 +43,7 @@ const sectionLabel: React.CSSProperties = {
   color: '#888', marginBottom: 8, fontWeight: 600, letterSpacing: '0.05em', fontSize: 11,
 };
 
-// ── Props ────────────────────────────────────────────────────────────────────
+//  Props 
 
 interface Props {
   frame: GameFrame | null;
@@ -55,6 +55,10 @@ interface Props {
   locationCount: number;
   structureCount: number;
   elevationCellCount: number;
+  cachedWorlds: string[];
+  selectedWorld: string;
+  liveWorld: string;
+  onSelectWorld: (worldName: string) => void;
   layers: LayerVisibility;
   onToggleLayer: (key: keyof LayerVisibility) => void;
   followActivePlayer: boolean;
@@ -73,11 +77,12 @@ type TopTab = 'MAP' | 'ORBAT';
 type MapSubTab = 'COMMON' | 'LOCATIONS';
 type OrbatSide = 'WEST' | 'EAST' | 'GUER' | 'CIV';
 
-// ── Component ────────────────────────────────────────────────────────────────
+//  Component 
 
 export function Sidebar({
   frame, connected, onRequestWorld,
   roadCount, treeCount, forestCellCount, locationCount, structureCount, elevationCellCount,
+  cachedWorlds, selectedWorld, liveWorld, onSelectWorld,
   layers, onToggleLayer, followActivePlayer, activePlayerName, onToggleFollowActivePlayer, renderMode, onChangeRenderMode,
   serverSettings, locations, groups, units, onFocusPosition,
 }: Props) {
@@ -85,12 +90,12 @@ export function Sidebar({
   const [mapSub, setMapSub]       = useState<MapSubTab>('COMMON');
   const [orbatSide, setOrbatSide] = useState<OrbatSide>('WEST');
 
-  // ── Computed data ────────────────────────────────────────────────────────
+  //  Computed data 
 
   const t = frame?.time;
   const timeStr = t
     ? `${t.year}/${String(t.month).padStart(2,'0')}/${String(t.day).padStart(2,'0')} ${String(t.hour).padStart(2,'0')}:${String(t.minute).padStart(2,'0')}`
-    : '—';
+    : '--';
 
   const unitCount  = frame ? Object.keys(frame.units).length : 0;
   const vehCount   = frame ? Object.keys(frame.vehicles).length : 0;
@@ -100,7 +105,7 @@ export function Sidebar({
   const sideKey = orbatSide.toLowerCase();
   const sideGroups = useMemo(() => {
     const unitList = Object.values(units);
-    // Map groupId → side from the group's leader unit
+    // Map groupId  side from the group's leader unit
     const groupSides = new Map<string, string>();
     for (const u of unitList) {
       if (u.id === u.leaderId || !groupSides.has(u.groupId)) {
@@ -116,7 +121,7 @@ export function Sidebar({
     [locations],
   );
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // Render
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
@@ -140,7 +145,7 @@ export function Sidebar({
           </div>
         )}
 
-        <div style={{ color: '#ddd', fontSize: 13, marginBottom: 8 }}>🕐 {timeStr}</div>
+        <div style={{ color: '#ddd', fontSize: 13, marginBottom: 8 }}>Time: {timeStr}</div>
 
         {/* Stats row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, textAlign: 'center', marginBottom: 8 }}>
@@ -157,14 +162,14 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* ── Top-level tabs: MAP | ORBAT ──────────────────────────────────── */}
+      {/*  Top-level tabs: MAP | ORBAT  */}
       <div style={tabBarStyle}>
         {(['MAP', 'ORBAT'] as TopTab[]).map(tb => (
           <button key={tb} style={tabStyle(topTab === tb)} onClick={() => setTopTab(tb)}>{tb}</button>
         ))}
       </div>
 
-      {/* ── Scrollable body ─────────────────────────────────────────────── */}
+      {/*  Scrollable body  */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '8px 16px 16px' }}>
         {topTab === 'MAP' && (
           <>
@@ -185,6 +190,10 @@ export function Sidebar({
               roadCount={roadCount} treeCount={treeCount} forestCellCount={forestCellCount}
               locationCount={locationCount} structureCount={structureCount}
               elevationCellCount={elevationCellCount}
+              cachedWorlds={cachedWorlds}
+              selectedWorld={selectedWorld}
+              liveWorld={liveWorld}
+              onSelectWorld={onSelectWorld}
             />}
 
             {mapSub === 'LOCATIONS' && <LocationsPanel
@@ -233,7 +242,7 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Footer — version */}
+      {/* Footer  version */}
       <div style={{ padding: '6px 16px', borderTop: '1px solid #222', color: '#444', fontSize: 10, textAlign: 'center' }}>
         v{APP_VERSION}
       </div>
@@ -241,12 +250,13 @@ export function Sidebar({
   );
 }
 
-// ── COMMON panel ─────────────────────────────────────────────────────────────
+//  COMMON panel 
 
 function CommonPanel({
   layers, onToggleLayer, followActivePlayer, activePlayerName, onToggleFollowActivePlayer, renderMode, onChangeRenderMode,
   onRequestWorld, connected,
   roadCount, treeCount, forestCellCount, locationCount, structureCount, elevationCellCount,
+  cachedWorlds, selectedWorld, liveWorld, onSelectWorld,
 }: {
   layers: LayerVisibility; onToggleLayer: (key: keyof LayerVisibility) => void;
   followActivePlayer: boolean;
@@ -256,9 +266,58 @@ function CommonPanel({
   onRequestWorld: () => void; connected: boolean;
   roadCount: number; treeCount: number; forestCellCount: number; locationCount: number;
   structureCount: number; elevationCellCount: number;
+  cachedWorlds: string[];
+  selectedWorld: string;
+  liveWorld: string;
+  onSelectWorld: (worldName: string) => void;
 }) {
+  const isLive = Boolean(liveWorld);
+  const displayWorld = liveWorld || selectedWorld || '';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* World selector */}
+      <div style={panelStyle}>
+        <div style={sectionLabel}>MAP</div>
+        {isLive ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+            <span style={{ color: '#888', fontSize: 11 }}>Live</span>
+            <span style={{ color: '#2ecc71', fontSize: 12, fontWeight: 700 }}>{displayWorld}</span>
+          </div>
+        ) : !CAPABILITIES.worldPicker ? (
+          // Apps without an offline world picker just show that no mission is live.
+          <div style={{ color: '#888', fontSize: 11 }}>Waiting for a mission</div>
+        ) : (
+          <>
+            <select
+              value={selectedWorld}
+              onChange={(e) => onSelectWorld(e.target.value)}
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                background: '#1e2e1e',
+                color: '#ddd',
+                border: '1px solid #333',
+                borderRadius: 4,
+                padding: '5px 6px',
+                fontSize: 12,
+                marginBottom: 2,
+              }}
+            >
+              <option value=""> select a map </option>
+              {cachedWorlds.map(w => (
+                <option key={w} value={w}>{w}</option>
+              ))}
+            </select>
+            {cachedWorlds.length === 0 && (
+              <div style={{ color: '#f0a500', fontSize: 10, lineHeight: 1.4, marginTop: 2 }}>
+                No cached maps found. Use Athena Desktop to export a map first.
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Map style */}
       <div style={panelStyle}>
         <div style={sectionLabel}>MAP STYLE</div>
@@ -292,13 +351,21 @@ function CommonPanel({
           { key: 'roads',      label: 'Roads' },
           { key: 'structures', label: 'Structures' },
           { key: 'locations',  label: 'Locations' },
+          // Mission-marker layers: only when the data source streams markers.
+          { key: 'armaMarkers', label: 'Arma Markers', show: CAPABILITIES.relayMarkers },
+          { key: 'firewillITgtMarkers', label: 'Firewill I-TGT Markers', show: CAPABILITIES.relayMarkers },
+          { key: 'aoMarkers',  label: 'AO Markers', show: CAPABILITIES.relayMarkers },
+          { key: 'spawnMarkers', label: 'Spawn Markers', show: CAPABILITIES.relayMarkers },
           { key: 'groups',     label: 'Groups' },
-          { key: 'waypoints',  label: 'Waypoints' },
-          { key: 'lazes',      label: 'Active Lazes' },
-          { key: 'projectiles',label: 'Projectile Tracking' },
+          // AR-only telemetry layers (extension DLL); see CAPABILITIES in appConfig.ts.
+          { key: 'waypoints',  label: 'Waypoints', show: CAPABILITIES.waypointToggle },
+          { key: 'lazes',      label: 'Active Lazes', show: CAPABILITIES.lazes },
+          { key: 'projectiles', label: 'Projectile Tracking', show: CAPABILITIES.projectiles },
           { key: 'vehicles',   label: 'Vehicles' },
           { key: 'units',      label: 'Units' },
-        ] as { key: keyof LayerVisibility; label: string }[]).map(({ key, label }) => (
+        ] as { key: keyof LayerVisibility; label: string; show?: boolean }[])
+          .filter(({ show }) => show !== false)
+          .map(({ key, label }) => (
           <label key={key} style={{
             display: 'flex', alignItems: 'center', gap: 8,
             marginBottom: 5, cursor: 'pointer', userSelect: 'none',
@@ -345,7 +412,7 @@ function CommonPanel({
         <div style={sectionLabel}>MAP DATA</div>
         {[
           { label: 'Roads',      value: roadCount,          unit: 'segments' },
-          { label: 'Trees',      value: treeCount,          unit: 'points' },
+          ...(treeCount > 0 ? [{ label: 'Trees', value: treeCount, unit: 'points' }] : []),
           { label: 'Forest',     value: forestCellCount,    unit: 'cells' },
           { label: 'Locations',  value: locationCount,      unit: 'labels' },
           { label: 'Structures', value: structureCount,     unit: 'objects' },
@@ -354,7 +421,7 @@ function CommonPanel({
           <div key={g.label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
             <span style={{ color: '#aaa' }}>{g.label}</span>
             <span style={{ color: g.value > 0 ? '#2ecc71' : '#555' }}>
-              {g.value > 0 ? `${g.value.toLocaleString()} ${g.unit}` : '—'}
+              {`${g.value.toLocaleString()} ${g.unit}`}
             </span>
           </div>
         ))}
@@ -363,7 +430,7 @@ function CommonPanel({
   );
 }
 
-// ── LOCATIONS panel ──────────────────────────────────────────────────────────
+//  LOCATIONS panel 
 
 function LocationsPanel({
   locations, onFocusPosition,
@@ -397,7 +464,7 @@ function LocationsPanel({
   );
 }
 
-// ── ORBAT panel ──────────────────────────────────────────────────────────────
+//  ORBAT panel 
 
 function OrbatPanel({
   side, groups, units, onFocusPosition, serverSettings,
@@ -439,7 +506,7 @@ function OrbatPanel({
 
         return (
           <div key={g.id} style={{ background: '#1e1e2e', borderRadius: 4, borderLeft: `3px solid ${color}` }}>
-            {/* Group header — click to focus */}
+            {/* Group header  click to focus */}
             <button
               onClick={() => onFocusPosition(posX, posY)}
               style={{

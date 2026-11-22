@@ -1,37 +1,53 @@
 import { MapContainer, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Dispatch, SetStateAction } from 'react';
-import type { Unit, Vehicle, Group, Road, ForestsData, MapLocation, MapStructure, ElevationsData, ContourLine, FiredEvent, FiredImpactEvent, ActiveLaze } from '../types/game';
-import { API_BASE } from '../apiBase';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { Dispatch, ReactNode, SetStateAction } from 'react';
+import type { Unit, Vehicle, Group, Road, ForestsData, MapLocation, MapStructure, ElevationsData, ContourLine, RelayMarker } from '../types/game';
+import { CAPABILITIES, MAP_DATA } from '../../appConfig';
 import 'leaflet/dist/leaflet.css';
 
 // Arma uses a square world coordinate system [0..worldSize].
-// We project it onto Leaflet CRS.Simple with a normalised 0â€“100 space.
+// We project it onto Leaflet CRS.Simple with a normalised 0100 space.
 // Y is flipped so "North" (higher Y in Arma) appears at the top.
 
-// Side â†’ colour matching Arma 3 faction conventions
+// Side  colour matching Arma 3 faction conventions
 function sideColor(side: string): string {
   switch (side.toLowerCase()) {
-    case 'west':     return '#4e9de0'; // BLUFOR â€“ blue
-    case 'east':     return '#d93b3b'; // OPFOR  â€“ red
-    case 'guer':     return '#4ec94e'; // INDFOR â€“ green
-    case 'civ':      return '#9b59b6'; // CIV    â€“ purple
+    case 'west':     return '#4e9de0'; // BLUFOR  blue
+    case 'east':     return '#d93b3b'; // OPFOR   red
+    case 'guer':     return '#4ec94e'; // INDFOR  green
+    case 'civ':      return '#9b59b6'; // CIV     purple
     default:         return '#cccccc';
   }
 }
 
-// â”€â”€ Road styling â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Road styling 
 
-function roadStyle(type: string, foot: boolean): { color: string; weight: number } | null {
-  if (foot) return null;  // skip footpaths
-  switch (type.toLowerCase()) {
-    case '':           return { color: '#D8CC9A', weight: 7.0  };  // primary — warm yellow
-    case 'road':       return { color: '#D8CC9A', weight: 7.0  };  // primary — warm yellow
-    case 'main road':  return { color: '#D8CC9A', weight: 5.0  };  // main — warm yellow
-    case 'track':      return { color: '#9E907E', weight: 3.0  };  // track
-    case 'hide':       return { color: '#8c959e', weight: 2.0  };  // airport surfaces
-    default:           return { color: '#9E907E', weight: 3.0  };
+function roadStyle(road: Road): { color: string; weight: number } | null {
+  if (road.foot) return { color: '#8B6B4A', weight: 1.6 }; // hiking/foot tracks
+  // Bus exact road colors: MapHelper.cs PopulateRoads
+  // Our Arma type strings map to Bus's RoadType enum:
+  //   '' / 'road'  Highway (main paved), 'main road'  Concrete,
+  //   'track'  Dirt, 'hide'  airport surfaces (Concrete)
+  const t = road.type.toLowerCase().trim();
+  const width = Number.isFinite(road.width) ? road.width : 0;
+  if (t.includes('track') || t.includes('trail') || t.includes('dirt')) {
+    return { color: '#8B6B4A', weight: 2.6 };
+  }
+  // Relay line-segment roads often arrive as type="road" with width=0.
+  // In current cache data these are mostly dirt/gravel tracks, not paved roads.
+  if (t === 'road' && width <= 0.01) {
+    return { color: '#8B6B4A', weight: 2.6 };
+  }
+  switch (t) {
+    case '':           return { color: '#F4A460', weight: 7.0  };  // Highway  SandyBrown
+    case 'road':       return { color: '#F4A460', weight: 7.0  };  // Highway  SandyBrown
+    case 'main road':  return { color: '#D3D3D3', weight: 5.0  };  // Concrete  LightGray
+    case 'track':      return { color: '#D2B48C', weight: 3.0  };  // Dirt  Tan
+    // In live Web2 cache data, many dirt/gravel path tiles are exported as "hide".
+    // Default them to tan gravel for closer in-game parity.
+    case 'hide':       return { color: '#8B6B4A', weight: 2.2  };
+    default:           return { color: '#A52A2A', weight: 3.0  };  // Unknown  Brown
   }
 }
 
@@ -41,14 +57,18 @@ function rotatedRoadRect(road: Road, scale: number): [number, number][] {
   // Fall back to midpoint of beg/end for old cached data lacking posX/posY.
   const cx = (road.posX ? road.posX : (road.beg1X + road.end2X) / 2) * scale;
   const cy = (road.posY ? road.posY : (road.beg1Y + road.end2Y) / 2) * scale;
-  // Pad each tile by 1m so adjacent 20×20 tiles overlap slightly, hiding
-  // sub-pixel gaps from floating-point position/rotation precision.
-  const pad = 1;
+  // Airport tiles should align tightly; avoid overlap that causes stacked seams.
+  const isHide = road.type.toLowerCase() === 'hide';
+  const pad = isHide ? 0.15 : 1;
   const halfWidth = ((road.width + pad) / 2) * scale;
   const halfLength = ((road.length + pad) / 2) * scale;
-  const angle = (road.dir * Math.PI) / 180;
+  // Quantize airport orientation to reduce tiny per-tile jitter.
+  const dirDeg = isHide ? Math.round(road.dir * 2) / 2 : road.dir;
+  const angle = (dirDeg * Math.PI) / 180;
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
+
+  const snap = (v: number) => Math.round(v * 10000) / 10000;
 
   const corners: [number, number][] = [
     [-halfWidth, -halfLength],
@@ -56,19 +76,173 @@ function rotatedRoadRect(road: Road, scale: number): [number, number][] {
     [halfWidth, halfLength],
     [-halfWidth, halfLength],
   ].map(([dx, dy]) => [
-    cy + dx * sin + dy * cos,
-    cx + dx * cos - dy * sin,
+    // Match structure transform so rectangle orientation is consistent across layers.
+    snap(cy + (-dx * sin) + (dy * cos)),
+    snap(cx + (dx * cos) + (dy * sin)),
   ]);
 
   return corners;
 }
 
-function rotatedStructureRect(s: MapStructure, scale: number): [number, number][] {
+function hideSurfaceStyle(_road: Road): { fillColor: string; lineColor: string } {
+  // Non-path hide tiles are airport/apron surfaces and should stay concrete-gray.
+  return { fillColor: '#D3D3D3', lineColor: '#D3D3D3' };
+}
+
+
+
+function hidePathPoint(road: Road, scale: number): [number, number] {
+  const cx = (road.posX ? road.posX : (road.beg1X + road.end2X) / 2) * scale;
+  const cy = (road.posY ? road.posY : (road.beg1Y + road.end2Y) / 2) * scale;
+  return [cy, cx];
+}
+
+function buildHidePathPolylines(points: [number, number][], scale: number): [number, number][][] {
+  if (points.length < 2) return [];
+
+  const maxLink = 28 * scale;
+  const minLink = 0.8 * scale;
+  const mergeLink = 22 * scale;
+
+  const dedup = new Map<string, [number, number]>();
+  points.forEach(([lat, lng]) => {
+    const key = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
+    if (!dedup.has(key)) dedup.set(key, [lat, lng]);
+  });
+  const nodes = Array.from(dedup.values());
+  if (nodes.length < 2) return [];
+
+  const candidates: { j: number; d: number }[][] = Array.from({ length: nodes.length }, () => []);
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      const d = Math.hypot(nodes[i][0] - nodes[j][0], nodes[i][1] - nodes[j][1]);
+      if (d < minLink || d > maxLink) continue;
+      candidates[i].push({ j, d });
+      candidates[j].push({ j: i, d });
+    }
+  }
+
+  const edges = new Set<string>();
+  candidates.forEach((cand, i) => {
+    cand.sort((a, b) => a.d - b.d);
+    cand.slice(0, 3).forEach(({ j }) => {
+      const a = Math.min(i, j);
+      const b = Math.max(i, j);
+      edges.add(`${a}_${b}`);
+    });
+  });
+
+  const adjacency: number[][] = Array.from({ length: nodes.length }, () => []);
+  edges.forEach(edge => {
+    const [aStr, bStr] = edge.split('_');
+    const a = Number(aStr);
+    const b = Number(bStr);
+    adjacency[a].push(b);
+    adjacency[b].push(a);
+  });
+
+  const visitedEdges = new Set<string>();
+  const polylines: [number, number][][] = [];
+  const edgeKey = (a: number, b: number) => `${Math.min(a, b)}_${Math.max(a, b)}`;
+
+  const walk = (start: number, first: number): [number, number][] => {
+    const line: [number, number][] = [nodes[start]];
+    let prev = start;
+    let curr = first;
+    visitedEdges.add(edgeKey(start, first));
+    line.push(nodes[curr]);
+
+    while (true) {
+      const nextCandidates = adjacency[curr].filter(n => n !== prev && !visitedEdges.has(edgeKey(curr, n)));
+      if (nextCandidates.length === 0) break;
+
+      let next = nextCandidates[0];
+      if (nextCandidates.length > 1) {
+        const vx = nodes[curr][0] - nodes[prev][0];
+        const vy = nodes[curr][1] - nodes[prev][1];
+        let bestScore = Number.NEGATIVE_INFINITY;
+        for (const candidate of nextCandidates) {
+          const wx = nodes[candidate][0] - nodes[curr][0];
+          const wy = nodes[candidate][1] - nodes[curr][1];
+          const dot = (vx * wx) + (vy * wy);
+          const mag = Math.max(1e-6, Math.hypot(vx, vy) * Math.hypot(wx, wy));
+          const score = dot / mag;
+          if (score > bestScore) {
+            bestScore = score;
+            next = candidate;
+          }
+        }
+      }
+
+      visitedEdges.add(edgeKey(curr, next));
+      line.push(nodes[next]);
+      prev = curr;
+      curr = next;
+      if (line.length > nodes.length + 1) break;
+    }
+
+    return line;
+  };
+
+  const starts = [...nodes.keys()].sort((a, b) => adjacency[a].length - adjacency[b].length);
+  starts.forEach(start => {
+    adjacency[start].forEach(neighbor => {
+      if (visitedEdges.has(edgeKey(start, neighbor))) return;
+      const line = walk(start, neighbor);
+      if (line.length >= 2) polylines.push(line);
+    });
+  });
+
+  const ptDist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  const reverse = (line: [number, number][]) => [...line].reverse();
+
+  // Merge nearby polyline endpoints so fragmented tile chains read as one path.
+  let changed = true;
+  let guard = 0;
+  while (changed && guard < 200) {
+    guard++;
+    changed = false;
+
+    for (let i = 0; i < polylines.length && !changed; i++) {
+      for (let j = i + 1; j < polylines.length && !changed; j++) {
+        const a = polylines[i];
+        const b = polylines[j];
+        if (a.length < 2 || b.length < 2) continue;
+
+        const aStart = a[0];
+        const aEnd = a[a.length - 1];
+        const bStart = b[0];
+        const bEnd = b[b.length - 1];
+
+        let merged: [number, number][] | null = null;
+        if (ptDist(aEnd, bStart) <= mergeLink) merged = [...a, ...b.slice(1)];
+        else if (ptDist(aEnd, bEnd) <= mergeLink) merged = [...a, ...reverse(b).slice(1)];
+        else if (ptDist(aStart, bStart) <= mergeLink) merged = [...reverse(a), ...b.slice(1)];
+        else if (ptDist(aStart, bEnd) <= mergeLink) merged = [...b, ...a.slice(1)];
+
+        if (merged) {
+          polylines[i] = merged;
+          polylines.splice(j, 1);
+          changed = true;
+        }
+      }
+    }
+  }
+
+  return polylines;
+}
+
+function rotatedStructureRect(
+  s: MapStructure,
+  scale: number,
+  dirOffsetDeg = 0,
+  swapAxes = false,
+): [number, number][] {
   const cx = s.posX * scale;
   const cy = s.posY * scale;
-  const halfWidth = (s.width / 2) * scale;
-  const halfLength = (s.length / 2) * scale;
-  const angle = (s.dir * Math.PI) / 180;
+  const halfWidth = ((swapAxes ? s.length : s.width) / 2) * scale;
+  const halfLength = ((swapAxes ? s.width : s.length) / 2) * scale;
+  const angle = ((s.dir + dirOffsetDeg) * Math.PI) / 180;
   const sin = Math.sin(angle);
   const cos = Math.cos(angle);
 
@@ -86,7 +260,7 @@ function rotatedStructureRect(s: MapStructure, scale: number): [number, number][
 
 function isWallFenceLike(s: MapStructure): boolean {
   const sig = `${s.type} ${s.model}`.toLowerCase();
-  return /(wall|fence|barrier|railing|hedge)/.test(sig);
+  return /(wall|fence|barrier|railing)/.test(sig);
 }
 
 function isPowerWireLike(s: MapStructure): boolean {
@@ -101,6 +275,28 @@ function isPowerPoleLike(s: MapStructure): boolean {
   return /(pole|post|pylon|mast)/.test(sig) && /(powerline|power_line|power|electric|utility|cable|wire)/.test(sig);
 }
 
+function isVegetationLike(s: MapStructure): boolean {
+  const sig = `${s.type} ${s.model}`.toLowerCase();
+  return /(bush|shrub|smalltree|small_tree|scrub|brush|hedge|briar)/.test(sig);
+}
+
+function structureOrientationPolicy(s: MapStructure): { dirOffsetDeg: number; swapAxes: boolean } {
+  const sig = `${s.type} ${s.model}`.toLowerCase();
+
+  // Hedge strips in current cache exports already carry usable heading and dimensions.
+  // Keep native axes or they appear rotated/perpendicular.
+  if (/(hedge|briar|brush|scrub)/.test(sig)) {
+    return { dirOffsetDeg: 0, swapAxes: false };
+  }
+
+  if (isVegetationLike(s)) {
+    // Smaller vegetation props generally look correct without axis swapping.
+    return { dirOffsetDeg: 0, swapAxes: false };
+  }
+
+  return { dirOffsetDeg: 0, swapAxes: false };
+}
+
 const MAP_MIN_ZOOM = 3;
 const MAP_MAX_ZOOM = 10.5;
 const DISPLAY_MIN_SCALE = 0.1;
@@ -109,6 +305,97 @@ const DISPLAY_MAX_SCALE = 3.0;
 function zoomToDisplayScale(zoom: number): number {
   const t = Math.max(0, Math.min(1, (zoom - MAP_MIN_ZOOM) / (MAP_MAX_ZOOM - MAP_MIN_ZOOM)));
   return DISPLAY_MIN_SCALE + t * (DISPLAY_MAX_SCALE - DISPLAY_MIN_SCALE);
+}
+
+function pointLineDistance(p: [number, number], a: [number, number], b: [number, number]): number {
+  const ax = a[0];
+  const ay = a[1];
+  const bx = b[0];
+  const by = b[1];
+  const px = p[0];
+  const py = p[1];
+
+  const dx = bx - ax;
+  const dy = by - ay;
+  if (dx === 0 && dy === 0) return Math.hypot(px - ax, py - ay);
+
+  const t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+  const cx = ax + t * dx;
+  const cy = ay + t * dy;
+  return Math.hypot(px - cx, py - cy);
+}
+
+function simplifyPolylineRdp(points: [number, number][], epsilon: number): [number, number][] {
+  if (points.length < 3 || epsilon <= 0) return points;
+
+  let maxDist = -1;
+  let index = -1;
+  const start = points[0];
+  const end = points[points.length - 1];
+
+  for (let i = 1; i < points.length - 1; i += 1) {
+    const d = pointLineDistance(points[i], start, end);
+    if (d > maxDist) {
+      maxDist = d;
+      index = i;
+    }
+  }
+
+  if (maxDist <= epsilon || index <= 0) {
+    return [start, end];
+  }
+
+  const left = simplifyPolylineRdp(points.slice(0, index + 1), epsilon);
+  const right = simplifyPolylineRdp(points.slice(index), epsilon);
+  return left.slice(0, -1).concat(right);
+}
+
+function simplifyClosedRing(points: [number, number][], epsilon: number): [number, number][] {
+  if (points.length < 4) return points;
+  // Treat ring as open polyline for simplification, then close it back.
+  const open = points.slice();
+  const simplifiedOpen = simplifyPolylineRdp(open, epsilon);
+  if (simplifiedOpen.length < 3) return points;
+  return simplifiedOpen;
+}
+
+function smoothPolylineChaikin(points: [number, number][], iterations: number, closed: boolean): [number, number][] {
+  if (iterations <= 0 || points.length < (closed ? 4 : 3)) return points;
+  let current = points;
+  for (let iter = 0; iter < iterations; iter += 1) {
+    if (current.length < (closed ? 4 : 3)) break;
+    const next: [number, number][] = [];
+    const count = current.length;
+
+    if (!closed) next.push(current[0]);
+
+    const edgeCount = closed ? count : count - 1;
+    for (let i = 0; i < edgeCount; i += 1) {
+      const p0 = current[i];
+      const p1 = current[(i + 1) % count];
+      const q: [number, number] = [0.75 * p0[0] + 0.25 * p1[0], 0.75 * p0[1] + 0.25 * p1[1]];
+      const r: [number, number] = [0.25 * p0[0] + 0.75 * p1[0], 0.25 * p0[1] + 0.75 * p1[1]];
+      next.push(q, r);
+    }
+
+    if (!closed) next.push(current[count - 1]);
+    current = next;
+  }
+  return current;
+}
+
+function contourSimplifyEpsilon(worldSize: number): number {
+  // Preserve much more source detail to avoid blocky contour appearance.
+  if (!Number.isFinite(worldSize) || worldSize <= 0) return 0.002;
+  const normalized = (0.35 * 100) / worldSize;
+  return Math.max(0.0008, Math.min(0.004, normalized));
+}
+
+function coastlineSimplifyEpsilon(worldSize: number): number {
+  // Coastlines are visually critical: keep simplification very tight.
+  if (!Number.isFinite(worldSize) || worldSize <= 0) return 0.0012;
+  const normalized = (0.18 * 100) / worldSize;
+  return Math.max(0.0004, Math.min(0.0025, normalized));
 }
 
 interface TreeRecord {
@@ -166,9 +453,13 @@ class TreeGridLayer extends L.GridLayer {
     const gyMin = Math.max(0, Math.floor(wMinY / cellW));
     const gyMax = Math.min(gridSize - 1, Math.floor(wMaxY / cellW));
 
-    // Scale tree circles based on zoom: larger at higher zoom for better visibility
-    const radius = Math.max(1.5, 0.5 + (coords.z - 7) * 0.6);
-    ctx.fillStyle = 'rgba(34, 139, 34, 0.9)';  // Forest green, slightly darker for visibility
+    // Desktop trees are 2m radius in world space. Convert that to pixel radius
+    // per zoom level so tree size scales naturally while zooming.
+    const pxPerMapUnit = Math.abs(
+      map.project([0, 1], coords.z).x - map.project([0, 0], coords.z).x,
+    );
+    const outerRadius = Math.max(1.8, 2.0 * scale * pxPerMapUnit);
+    const innerRadius = Math.max(1.0, outerRadius * 0.68);
 
     for (let gy = gyMin; gy <= gyMax; gy++) {
       for (let gx = gxMin; gx <= gxMax; gx++) {
@@ -187,8 +478,14 @@ class TreeGridLayer extends L.GridLayer {
           const px = point.x - nw.x;
           const py = point.y - nw.y;
 
+          ctx.fillStyle = '#0f2410';
           ctx.beginPath();
-          ctx.arc(px, py, radius, 0, Math.PI * 2);
+          ctx.arc(px, py, outerRadius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = 'rgba(34, 139, 34, 1)';
+          ctx.beginPath();
+          ctx.arc(px, py, innerRadius, 0, Math.PI * 2);
           ctx.fill();
         }
       }
@@ -198,12 +495,12 @@ class TreeGridLayer extends L.GridLayer {
   }
 }
 
-// â”€â”€ Unit icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Unit icons 
 // Match Athena Desktop Unit.GetMarkerType() logic exactly.
 function unitIconFile(unit: Unit): string {
   const t = (unit.type ?? '').trim().toLowerCase();
   const r = (unit.rank ?? '').toLowerCase();
-  // Rank >= Lieutenant → officer
+  // Rank >= Lieutenant  officer
   if (/colonel|major|captain|lieutenant/.test(r)) return 'iconmanofficer';
   // Squad/team leader
   if (t.includes('_sl') || t.includes('_tl_')) return 'iconmanleader';
@@ -250,7 +547,7 @@ function unitIcon(unit: Unit): L.DivIcon {
     `-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;` +
     `-webkit-mask-position:center;mask-position:center;` +
     `transform:rotate(${dir}deg);transform-origin:center;` +
-    `filter:drop-shadow(1px 0 0 rgba(0,0,0,0.5)) drop-shadow(-1px 0 0 rgba(0,0,0,0.5)) drop-shadow(0 1px 0 rgba(0,0,0,0.5)) drop-shadow(0 -1px 0 rgba(0,0,0,0.5));` +
+    `filter:drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);` +
     `"></div>` +
     `<div class="map-marker-label" style="position:absolute;top:${size + 2}px;left:50%;transform:translateX(-50%);white-space:nowrap;">${label}</div>` +
     `</div>`;
@@ -311,473 +608,33 @@ function shortRank(rank: string): string {
   return rank;
 }
 
-// ── Waypoint line styling per type ───────────────────────────────────────────
+//  Waypoint line styling per type 
 function waypointStyle(wpType: string): { color: string; endColor: string; endIcon: string } {
   const t = wpType.toUpperCase();
-  // Attack / aggressive types — red
+  // Attack / aggressive types  red
   if (t === 'DESTROY' || t === 'SAD' || t === 'SEEK AND DESTROY' || t === 'ATTACK')
     return { color: '#d32f2f', endColor: '#d32f2f', endIcon: '<line x1="4" y1="4" x2="10" y2="10" stroke="#fff" stroke-width="1.5"/><line x1="10" y1="4" x2="4" y2="10" stroke="#fff" stroke-width="1.5"/>' };
-  // Guard / support — amber
+  // Guard / support  amber
   if (t === 'GUARD' || t === 'SUPPORT')
     return { color: '#f9a825', endColor: '#f9a825', endIcon: '' };
-  // Get in / board — blue
+  // Get in / board  blue
   if (t === 'GETIN' || t === 'GET IN' || t === 'GETOUT' || t === 'GET OUT' || t === 'LOAD' || t === 'UNLOAD')
     return { color: '#1976d2', endColor: '#1976d2', endIcon: '' };
-  // Sentry / hold — purple
+  // Sentry / hold  purple
   if (t === 'SENTRY' || t === 'HOLD')
     return { color: '#9c27b0', endColor: '#9c27b0', endIcon: '' };
-  // Move / default — dark grey
+  // Move / default  dark grey
   return { color: '#333', endColor: '#aaa', endIcon: '' };
 }
-
-type ProjectileProfile = {
-  speedMps: number;
-  rangeM: number;
-  lateralFactor: number;
-  color: string;
-  headingOffsetDeg?: number;
-  maxTrackAngleDeg: number;
-  requiresLock: boolean;
-  allowEnemyTargetInference: boolean;
-  preferLiveLaze: boolean;
-  launchDelayMs: number;
-  lingerAfterImpactMs: number;
-  // Ballistic trajectory: ETA (s) = ballA * distance^ballB — derived from live calibration.
-  // When set, overrides the fixed-speed speedMps formula for ETA calculation.
-  useBallistics?: boolean;
-  ballA?: number;
-  ballB?: number;
-};
-
-type TargetEstimate = {
-  x: number;
-  y: number;
-  source: 'event' | 'laze' | 'waypoint' | 'enemy' | 'unit' | 'heading';
-  eventSource?: string;
-};
-
-type GuidedLock = {
-  kind: 'unit' | 'laze';
-  unitId: string;
-};
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
 }
 
-function normDeg(deg: number): number {
-  let d = deg % 360;
-  if (d < 0) d += 360;
-  return d;
-}
-
-function shortestAngleDiff(a: number, b: number): number {
-  const d = Math.abs(normDeg(a) - normDeg(b));
-  return d > 180 ? 360 - d : d;
-}
-
-function getProjectileProfile(ev: FiredEvent): ProjectileProfile | null {
-  const text = `${ev.weapon} ${ev.ammo} ${ev.projectile}`.toLowerCase();
-  if (!text.trim()) return null;
-
-  if (text.includes('cruise')) {
-    // Calibrated from live VLS tests: practical time-of-flight is about 14s at ~1500m.
-    return { speedMps: 110, rangeM: 14000, lateralFactor: 0.12, color: '#ff6b6b', maxTrackAngleDeg: 70, requiresLock: true, allowEnemyTargetInference: true, preferLiveLaze: true, launchDelayMs: 1200, lingerAfterImpactMs: 9500 };
-  }
-  if ((text.includes('artillery') || text.includes('shell') || text.includes('mortar')) &&
-      !text.includes('shipcannon') &&
-      !text.includes('weapon_shipcannon_120mm')) {
-    // Calibrated from M4 Scorcher: 1391m→29s, 11178m→72s → ETA ≈ 1.235 × d^0.4363
-     return { speedMps: 230, rangeM: 9000, lateralFactor: 0, color: '#ffd43b', maxTrackAngleDeg: 28, requiresLock: false, allowEnemyTargetInference: false, preferLiveLaze: false, launchDelayMs: 0, lingerAfterImpactMs: 2500, useBallistics: true, ballA: 1.235, ballB: 0.4363 };
-  }
-  if (text.includes('rocket') || text.includes('mlrs') || text.includes('230mm')) {
-    // Calibrated from MLRS rockets_230mm_GAT: 1393m→23s → ETA ≈ 0.979 × d^0.4363 (same exponent as SPG)
-     return { speedMps: 190, rangeM: 5000, lateralFactor: 0, color: '#74c0fc', maxTrackAngleDeg: 22, requiresLock: false, allowEnemyTargetInference: false, preferLiveLaze: false, launchDelayMs: 0, lingerAfterImpactMs: 2500, useBallistics: true, ballA: 0.979, ballB: 0.4363 };
-  }
-  if (text.includes('shipcannon')) {
-    // MK45 naval gun (weapon_ShipCannon_120mm). Non-monotonic ETA curve — medium ranges are slowest
-    // (high-arc trajectory). Ballistic fit anchored at 762m→29s and 12352m→76s.
-    // fired_impact telemetry will correct the mid-range underestimate after the first shot lands.
-    // lateralFactor: 0 — indirect fire flies a straight horizontal path; curvature is only vertical.
-    // A non-zero factor always curves left of the bearing which looks wrong (south for NW shots, etc.).
-    return { speedMps: 90, rangeM: 14000, lateralFactor: 0, color: '#e599f7', maxTrackAngleDeg: 22, requiresLock: false, allowEnemyTargetInference: false, preferLiveLaze: false, launchDelayMs: 0, lingerAfterImpactMs: 2500, useBallistics: true, ballA: 3.424, ballB: 0.3457 };
-  }
-  if (text.includes('missile') || text.includes('sam') || text.includes('at')) {
-    return { speedMps: 300, rangeM: 7000, lateralFactor: 0.06, color: '#ffa94d', maxTrackAngleDeg: 40, requiresLock: true, allowEnemyTargetInference: true, preferLiveLaze: false, launchDelayMs: 0, lingerAfterImpactMs: 2500 };
-  }
-  return null;
-}
-
-function targetFromFiredEvent(ev: FiredEvent): TargetEstimate | null {
-  if (!ev.targetSource?.trim()) return null;
-  if (typeof ev.targetX !== 'number' || !Number.isFinite(ev.targetX)) return null;
-  if (typeof ev.targetY !== 'number' || !Number.isFinite(ev.targetY)) return null;
-
-  const source = ev.targetSource.toLowerCase();
-  const text = `${ev.weapon} ${ev.ammo} ${ev.projectile}`.toLowerCase();
-  const isUnguidedIndirect = text.includes('rocket') || text.includes('mlrs') || text.includes('230mm') || text.includes('artillery') || text.includes('shell') || text.includes('mortar') || text.includes('shipcannon');
-
-  // Ignore broad laser/scan target inference for unguided indirect fire.
-  if (isUnguidedIndirect && source !== 'assigned') return null;
-
-  return {
-    x: ev.targetX,
-    y: ev.targetY,
-    source: 'event',
-    eventSource: ev.targetSource,
-  };
-}
-
-function projectileSourceTag(target: TargetEstimate): string {
-  if (target.source === 'event') {
-    switch ((target.eventSource ?? '').toLowerCase()) {
-      case 'assigned': return 'LOCK';
-      case 'laser': return 'LASE';
-      case 'scan': return 'SCAN';
-      default: return 'RPT';
-    }
-  }
-  if (target.source === 'laze') return 'LASE';
-  if (target.source === 'unit') return 'TGT';
-  return target.source === 'waypoint' ? 'WP' : target.source === 'enemy' ? 'TGT' : 'HDG';
-}
-
-function findNearestEnemyUnitId(
-  srcX: number,
-  srcY: number,
-  dirDeg: number,
-  shooterSide: string,
-  allUnits: Record<string, Unit>,
-  profile: ProjectileProfile,
-): string | null {
-  if (!profile.allowEnemyTargetInference) return null;
-
-  const rad = (dirDeg * Math.PI) / 180;
-  const fx = Math.sin(rad);
-  const fy = Math.cos(rad);
-  const maxTrackCos = Math.cos((profile.maxTrackAngleDeg * Math.PI) / 180);
-
-  let best: { id: string; score: number } | null = null;
-  for (const u of Object.values(allUnits)) {
-    if (u.side === shooterSide) continue;
-    if (!Number.isFinite(u.posX) || !Number.isFinite(u.posY)) continue;
-    if (u.posX === 0 && u.posY === 0) continue;
-
-    const dx = u.posX - srcX;
-    const dy = u.posY - srcY;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 50 || dist > profile.rangeM * 1.35) continue;
-
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const dot = nx * fx + ny * fy;
-    if (dot < maxTrackCos) continue;
-
-    const anglePenalty = 1 - dot;
-    const rangePenalty = dist / Math.max(profile.rangeM, 1);
-    const score = anglePenalty * 0.7 + rangePenalty * 0.3;
-    if (!best || score < best.score) best = { id: u.id, score };
-  }
-
-  return best?.id ?? null;
-}
-
-function findNearestLazeUnitId(
-  srcX: number,
-  srcY: number,
-  dirDeg: number,
-  shooterUnitId: string,
-  lazes: ActiveLaze[],
-  profile: ProjectileProfile,
-): string | null {
-  if (lazes.length === 0) return null;
-
-  const ownLaze = lazes.find(l => l.unitId === shooterUnitId);
-  if (ownLaze && Number.isFinite(ownLaze.posX) && Number.isFinite(ownLaze.posY)) {
-    return ownLaze.unitId;
-  }
-
-  const rad = (dirDeg * Math.PI) / 180;
-  const fx = Math.sin(rad);
-  const fy = Math.cos(rad);
-  const maxTrackCos = Math.cos((Math.min(85, profile.maxTrackAngleDeg + 15) * Math.PI) / 180);
-
-  let best: { unitId: string; score: number } | null = null;
-  for (const l of lazes) {
-    if (!Number.isFinite(l.posX) || !Number.isFinite(l.posY)) continue;
-
-    const dx = l.posX - srcX;
-    const dy = l.posY - srcY;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 50 || dist > profile.rangeM * 1.35) continue;
-
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const dot = nx * fx + ny * fy;
-    if (dot < maxTrackCos) continue;
-
-    const anglePenalty = 1 - dot;
-    const rangePenalty = dist / Math.max(profile.rangeM, 1);
-    const score = anglePenalty * 0.75 + rangePenalty * 0.25;
-    if (!best || score < best.score) best = { unitId: l.unitId, score };
-  }
-
-  return best?.unitId ?? null;
-}
-
-function findNearestLazeUnitIdByTargetPoint(
-  targetX: number,
-  targetY: number,
-  lazes: ActiveLaze[],
-  maxDist = 1200,
-): string | null {
-  let best: { unitId: string; dist: number } | null = null;
-  for (const l of lazes) {
-    if (!Number.isFinite(l.posX) || !Number.isFinite(l.posY)) continue;
-    const dist = Math.hypot(l.posX - targetX, l.posY - targetY);
-    if (dist > maxDist) continue;
-    if (!best || dist < best.dist) {
-      best = { unitId: l.unitId, dist };
-    }
-  }
-  return best?.unitId ?? null;
-}
-
-function resolveGuidedLockTarget(
-  lock: GuidedLock,
-  units: Record<string, Unit>,
-  lazes: ActiveLaze[],
-  worldSize: number,
-): TargetEstimate | null {
-  if (lock.kind === 'unit') {
-    const unit = units[lock.unitId];
-    if (!unit) return null;
-    if (!Number.isFinite(unit.posX) || !Number.isFinite(unit.posY)) return null;
-    if (unit.posX === 0 && unit.posY === 0) return null;
-    return {
-      x: clamp(unit.posX, 0, worldSize),
-      y: clamp(unit.posY, 0, worldSize),
-      source: 'unit',
-    };
-  }
-
-  const laze = lazes.find(l => l.unitId === lock.unitId);
-  if (!laze) return null;
-  if (!Number.isFinite(laze.posX) || !Number.isFinite(laze.posY)) return null;
-  return {
-    x: clamp(laze.posX, 0, worldSize),
-    y: clamp(laze.posY, 0, worldSize),
-    source: 'laze',
-  };
-}
-
-function acquireGuidedLock(
-  ev: FiredEvent,
-  launchX: number,
-  launchY: number,
-  launchDirDeg: number,
-  shooterSide: string,
-  units: Record<string, Unit>,
-  lazes: ActiveLaze[],
-  profile: ProjectileProfile,
-): GuidedLock | null {
-  const source = (ev.targetSource ?? '').toLowerCase();
-  const preferLaze = profile.preferLiveLaze || source === 'laser' || source === 'scan';
-
-  // If telemetry says this was laser-based, keep lock on active laze first.
-  if (preferLaze) {
-    if (typeof ev.targetX === 'number' && Number.isFinite(ev.targetX) && typeof ev.targetY === 'number' && Number.isFinite(ev.targetY)) {
-      const byTargetPoint = findNearestLazeUnitIdByTargetPoint(ev.targetX, ev.targetY, lazes);
-      if (byTargetPoint) {
-        return { kind: 'laze', unitId: byTargetPoint };
-      }
-    }
-
-    const lazeUnitId = findNearestLazeUnitId(launchX, launchY, launchDirDeg, ev.unitId, lazes, profile);
-    if (lazeUnitId) {
-      return { kind: 'laze', unitId: lazeUnitId };
-    }
-  }
-
-  const eventEntityId = ev.targetEntityId?.trim();
-  if (eventEntityId) {
-    const byId = units[eventEntityId];
-    if (byId && Number.isFinite(byId.posX) && Number.isFinite(byId.posY)) {
-      return { kind: 'unit', unitId: byId.id };
-    }
-  }
-
-  if (typeof ev.targetX === 'number' && Number.isFinite(ev.targetX) && typeof ev.targetY === 'number' && Number.isFinite(ev.targetY)) {
-    let nearest: { id: string; dist: number } | null = null;
-    for (const u of Object.values(units)) {
-      if (u.side === shooterSide) continue;
-      if (!Number.isFinite(u.posX) || !Number.isFinite(u.posY)) continue;
-      const dist = Math.hypot(u.posX - ev.targetX, u.posY - ev.targetY);
-      if (dist > 1000) continue;
-      if (!nearest || dist < nearest.dist) nearest = { id: u.id, dist };
-    }
-    if (nearest) {
-      return { kind: 'unit', unitId: nearest.id };
-    }
-  }
-
-  const inferredUnitId = findNearestEnemyUnitId(launchX, launchY, launchDirDeg, shooterSide, units, profile);
-  if (inferredUnitId) {
-    return { kind: 'unit', unitId: inferredUnitId };
-  }
-
-  const lazeUnitId = findNearestLazeUnitId(launchX, launchY, launchDirDeg, ev.unitId, lazes, profile);
-  if (lazeUnitId) {
-    return { kind: 'laze', unitId: lazeUnitId };
-  }
-
-  return null;
-}
-
-function targetFromLazes(
-  srcX: number,
-  srcY: number,
-  dirDeg: number,
-  shooterUnitId: string,
-  lazes: ActiveLaze[],
-  worldSize: number,
-  profile: ProjectileProfile,
-): TargetEstimate | null {
-  if (lazes.length === 0) return null;
-
-  const ownLaze = lazes.find(l => l.unitId === shooterUnitId);
-  if (ownLaze && Number.isFinite(ownLaze.posX) && Number.isFinite(ownLaze.posY)) {
-    return {
-      x: clamp(ownLaze.posX, 0, worldSize),
-      y: clamp(ownLaze.posY, 0, worldSize),
-      source: 'laze',
-    };
-  }
-
-  const rad = (dirDeg * Math.PI) / 180;
-  const fx = Math.sin(rad);
-  const fy = Math.cos(rad);
-  const maxTrackCos = Math.cos((Math.min(85, profile.maxTrackAngleDeg + 15) * Math.PI) / 180);
-
-  let best: { x: number; y: number; score: number } | null = null;
-  for (const l of lazes) {
-    if (!Number.isFinite(l.posX) || !Number.isFinite(l.posY)) continue;
-    const dx = l.posX - srcX;
-    const dy = l.posY - srcY;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 50 || dist > profile.rangeM * 1.35) continue;
-    const nx = dx / dist;
-    const ny = dy / dist;
-    const dot = nx * fx + ny * fy;
-    if (dot < maxTrackCos) continue;
-
-    const anglePenalty = 1 - dot;
-    const rangePenalty = dist / Math.max(profile.rangeM, 1);
-    const score = anglePenalty * 0.75 + rangePenalty * 0.25;
-    if (!best || score < best.score) best = { x: l.posX, y: l.posY, score };
-  }
-
-  if (!best) return null;
-  return {
-    x: clamp(best.x, 0, worldSize),
-    y: clamp(best.y, 0, worldSize),
-    source: 'laze',
-  };
-}
-
-function lazeLabel(unit: Unit | undefined): string {
-  if (!unit) return 'Laser';
-  if (unit.playerName?.trim()) return unit.playerName.trim();
-  return unit.name?.trim() || unit.type || 'Laser';
-}
-
-function estimateTarget(
-  srcX: number,
-  srcY: number,
-  dirDeg: number,
-  shooterSide: string,
-  grp: Group | undefined,
-  allUnits: Record<string, Unit>,
-  worldSize: number,
-  profile: ProjectileProfile,
-): TargetEstimate {
-  if (grp && (grp.wpX !== 0 || grp.wpY !== 0)) {
-    return { x: grp.wpX, y: grp.wpY, source: 'waypoint' };
-  }
-
-  const rad = (dirDeg * Math.PI) / 180;
-  const fx = Math.sin(rad);
-  const fy = Math.cos(rad);
-  const maxTrackCos = Math.cos((profile.maxTrackAngleDeg * Math.PI) / 180);
-
-  if (profile.allowEnemyTargetInference) {
-    let best: { x: number; y: number; score: number } | null = null;
-    for (const u of Object.values(allUnits)) {
-      if (u.side === shooterSide) continue;
-      if (!Number.isFinite(u.posX) || !Number.isFinite(u.posY)) continue;
-      if (u.posX === 0 && u.posY === 0) continue;
-      const dx = u.posX - srcX;
-      const dy = u.posY - srcY;
-      const dist = Math.hypot(dx, dy);
-      if (dist < 50 || dist > profile.rangeM * 1.25) continue;
-      const nx = dx / dist;
-      const ny = dy / dist;
-      const dot = nx * fx + ny * fy;
-      if (dot < maxTrackCos) continue;
-      const anglePenalty = 1 - dot;
-      const rangePenalty = dist / Math.max(profile.rangeM, 1);
-      const score = anglePenalty * 0.7 + rangePenalty * 0.3;
-      if (!best || score < best.score) best = { x: u.posX, y: u.posY, score };
-    }
-
-    if (best) return { x: best.x, y: best.y, source: 'enemy' };
-  }
-
-  const dx = Math.sin(rad) * profile.rangeM;
-  const dy = Math.cos(rad) * profile.rangeM;
-  return {
-    x: clamp(srcX + dx, 0, worldSize),
-    y: clamp(srcY + dy, 0, worldSize),
-    source: 'heading',
-  };
-}
-
-function buildPredictedPath(
-  srcX: number,
-  srcY: number,
-  dstX: number,
-  dstY: number,
-  lateralFactor: number,
-  progress: number,
-  samples = 42,
-): [number, number][] {
-  const dx = dstX - srcX;
-  const dy = dstY - srcY;
-  const dist = Math.hypot(dx, dy);
-  const nx = dist > 0.001 ? dx / dist : 1;
-  const ny = dist > 0.001 ? dy / dist : 0;
-  const px = -ny;
-  const py = nx;
-  const offset = dist * lateralFactor;
-
-  const p0x = srcX;
-  const p0y = srcY;
-  const p1x = srcX + dx * 0.5 + px * offset;
-  const p1y = srcY + dy * 0.5 + py * offset;
-  const p2x = dstX;
-  const p2y = dstY;
-
-  const tMax = clamp(progress, 0, 1);
-  const points: [number, number][] = [];
-  const count = Math.max(2, Math.floor(samples * tMax));
-  for (let i = 0; i <= count; i++) {
-    const t = (i / count) * tMax;
-    const inv = 1 - t;
-    const x = inv * inv * p0x + 2 * inv * t * p1x + t * t * p2x;
-    const y = inv * inv * p0y + 2 * inv * t * p1y + t * t * p2y;
-    points.push([x, y]);
-  }
-  return points;
+function toITgt8(x: number, y: number): string {
+  const x4 = Math.max(0, Math.min(9999, Math.floor(x / 10))).toString().padStart(4, '0');
+  const y4 = Math.max(0, Math.min(9999, Math.floor(y / 10))).toString().padStart(4, '0');
+  return `${x4}${y4}`;
 }
 
 function firingPulseIcon(size = 28): L.DivIcon {
@@ -806,7 +663,7 @@ function groupIcon(side: string, _unitCount: number, groupType: string): L.DivIc
     `-webkit-mask-size:contain;mask-size:contain;` +
     `-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;` +
     `-webkit-mask-position:center;mask-position:center;` +
-    `filter:drop-shadow(1px 0 0 rgba(0,0,0,0.55)) drop-shadow(-1px 0 0 rgba(0,0,0,0.55)) drop-shadow(0 1px 0 rgba(0,0,0,0.55)) drop-shadow(0 -1px 0 rgba(0,0,0,0.55));` +
+    `filter:drop-shadow(1px 0 0 #000) drop-shadow(-1px 0 0 #000) drop-shadow(0 1px 0 #000) drop-shadow(0 -1px 0 #000);` +
     `"></div>`;
   return L.divIcon({ className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2], html });
 }
@@ -815,14 +672,66 @@ function groupLabel(group: Group): string {
   return (group.name || 'GROUP').trim();
 }
 
+function lookupVehicleCategoryFromMap(rawClass: string, vehicleMap: Map<string, string>): string {
+  const cls = (rawClass || '').trim();
+  if (!cls) return '';
+
+  const lower = cls.toLowerCase();
+  const direct = vehicleMap.get(cls) || vehicleMap.get(lower);
+  if (direct) return direct;
+
+  const normalized = lower.replace(/[\s\-\/]+/g, '_').replace(/_+/g, '_');
+  const normalizedMapped = vehicleMap.get(normalized);
+  if (normalizedMapped) return normalizedMapped;
+
+  // Relay can include mixed payload text; extract Arma-like class tokens and test each.
+  const tokenMatches = cls.match(/[A-Za-z0-9]+(?:_[A-Za-z0-9]+)+/g) || [];
+  for (const token of tokenMatches) {
+    const t = token.toLowerCase();
+    const mapped = vehicleMap.get(token) || vehicleMap.get(t);
+    if (mapped) return mapped;
+  }
+
+  // Last resort: substring match against known class keys for noisy display-name payloads.
+  for (const [key, value] of vehicleMap.entries()) {
+    if (!key || key !== key.toLowerCase()) continue;
+    if (key.length < 8) continue;
+    if (normalized.includes(key)) return value;
+  }
+
+  return '';
+}
+
 function resolveVehicleCategory(vehicleClass: string, vehicleMap: Map<string, string>): string {
-  const text = vehicleClass.toLowerCase();
+  const cls = (vehicleClass || '').trim();
+  const text = cls.toLowerCase();
 
   // Parachutes must never inherit helicopter mapping from the vehicle library.
   if (text.includes('parachute') || text.includes('chute')) return 'Parachutes';
 
-  const mapped = vehicleMap.get(vehicleClass);
+  const mapped = lookupVehicleCategoryFromMap(cls, vehicleMap);
   if (mapped) return mapped;
+
+  // Common relay/mod text labels can include names like "Huey Gunship" that are
+  // clearly helicopters but do not match exact class library entries.
+  if (/(huey|gunship|\buh[-_ ]?1\b|\bah[-_ ]?1\b|\buh1h\b|\buh1y\b|\bah1\b)/.test(text)) return 'Helicopters';
+
+  // High-confidence Arma naming fallbacks for cases where class libraries are unavailable.
+  if (/(wipeout|blackfish|neophron|buzzard|shikra|gryphon|to201|a149|falcon|black\s*wasp|caesar\s*btt|a[-_ ]?10|f[-_ ]?\d{2}|mig[-_ ]?\d{2}|su[-_ ]?\d{2})/.test(text)) return 'Planes';
+  if (/(blackfoot|ghosthawk|mohawk|huron|orca|pawnee|taru|hellcat|ka60|ka62)/.test(text)) return 'Helicopters';
+  if (/(cheetah|tigris|praetorian|sam|aaa)/.test(text)) return 'AAs';
+  if (/(scorcher|sochor|sandstorm|mrls|mortar)/.test(text)) return 'Artillery';
+  if (/(panther|mora|kamysh|marshall|marid|gorgon|ifv|apc)/.test(text)) return 'APCs';
+  if (/(slammer|varsuk|kuma|mbt|tank|t140|t100|leopard|abrams|t72|t90|challenger)/.test(text)) return 'Tanks';
+  if (/(speedboat|assaultboat|rhib|motorboat|\bboat\b|\bship\b|sdv|submarine)/.test(text)) return text.includes('sdv') || text.includes('sub') ? 'Submersibles' : 'Boats';
+  if (/(stomper|sentinel|drone|uav|ugv|pelican)/.test(text)) return 'Drones';
+  if (/(offroad|hunter|ifrit|strider|van|truck|zamak|tempest|hemtt|quadbike|mrap|lsv)/.test(text)) return 'Cars';
+  if (/(\buh[-_]?\d+|\bah[-_]?\d+|\bmh[-_]?\d+|\bmi[-_]?\d+|\bka[-_]?\d+|\bch[-_]?\d+|\bmv[-_]?\d+)/.test(text)) return 'Helicopters';
+  if (/(\bsu[-_]?\d+|\bmig[-_]?\d+|\bf[-_]?\d+|\ba[-_]?\d+|\bav[-_]?\d+|\bjet\b)/.test(text)) return 'Planes';
+  if (/(\bbmp\b|\bbtr\b|\bbrdm\b|\bm113\b|\bifv\b|\bapc\b)/.test(text)) return 'APCs';
+  if (/(\bmbt\b|\bt[-_]?\d+\b|\bm1a\d+\b|\bleopard\b|\babrams\b|\btank\b)/.test(text)) return 'Tanks';
+  if (/(\bural\b|\bkamaz\b|\bm939\b|\bmtvr\b|\btruck\b|\bcar\b|\bmrap\b|\bjeep\b|\bhumvee\b|\bhmmwv\b|\bquad\b)/.test(text)) return 'Cars';
+  if (/(\bboat\b|\brhib\b|\bship\b|\bcutter\b|\bpatrol\b)/.test(text)) return 'Boats';
   if (text.includes('plane') || text.includes('jet')) return 'Planes';
   if (text.includes('heli')) return 'Helicopters';
   if (text.includes('uav') || text.includes('ugv') || text.includes('drone')) return 'Drones';
@@ -838,7 +747,7 @@ function resolveVehicleCategory(vehicleClass: string, vehicleMap: Map<string, st
   return '';
 }
 
-// ── Vehicle subtype resolution ───────────────────────────────────────────
+//  Vehicle subtype resolution 
 
 function resolveDroneSubtype(vehicleClass: string): string {
   const t = vehicleClass.toLowerCase();
@@ -883,14 +792,20 @@ function resolveTurretSubtype(vehicleClass: string): string {
   return 'hmg';                                                           // default HMG / static
 }
 
-// â”€â”€ Vehicle icons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Vehicle icons 
 
 
 function categoryToIconFile(category: string, vehicleClass?: string): string {
   const cl = (vehicleClass ?? '').toLowerCase();
   switch (category) {
     case 'Parachutes':    return 'iconparachute';
-    case 'Cars':          return cl.includes('truck') ? 'icontruck' : cl.includes('motorcycle') ? 'iconmotorcycle' : 'iconcar';
+    case 'Cars':          return cl.includes('quad') || cl.includes('quadbike')
+      ? 'iconcar'
+      : (cl.includes('truck') || cl.includes('zamak') || cl.includes('tempest') || cl.includes('hemtt') || cl.includes('m939') || cl.includes('ural') || cl.includes('kamaz'))
+      ? 'icontruck'
+      : (cl.includes('motorcycle') || cl.includes('motorbike') || cl.includes('bike'))
+        ? 'iconmotorcycle'
+        : 'iconcar';
     case 'APCs':          return 'iconapc';
     case 'Tanks':         return 'icontank';
     case 'Helicopters':   return 'iconhelicopter';
@@ -900,27 +815,69 @@ function categoryToIconFile(category: string, vehicleClass?: string): string {
     case 'AAs':           return 'iconapc';  // Desktop: AAs inherit tank/APC, show as APC
     case 'Submersibles':  return 'iconship';
     case 'Drones':        return 'iconplane'; // Desktop: drones use plane icon
-    case 'Turrets':       return 'iconstaticmg';
-    default:              return 'iconvehicle';
+    case 'Turrets':       return cl.includes('ship_mrls') || cl.includes('mrls') ? 'iconstaticcannon' : 'iconstaticmg';
+    default:              return 'iconcar';
   }
 }
 
-function vehicleIconHtml(category: string, color: string, dir: number, size: number, vehicleClass?: string): string {
+function natoVehicleMarkerPath(vehicleClass: string | undefined, side: string, category: string): string | null {
+  const cls = (vehicleClass ?? '').toLowerCase();
+  const sidePrefix = natoSidePrefix(side);
+
+  // Arma/Athena Desktop style: all drones use dedicated UAV NATO marker.
+  if (category === 'Drones' || /\buav_\d+|\bugv_\d+|greyhawk|sentinel|stomper|falcon|pelican/.test(cls)) {
+    return `/icons/nato/${sidePrefix}_uav.png`;
+  }
+
+  // Arma/Athena Desktop style: turret-like assets use NATO-style installation/support/art symbols.
+  if (category === 'Turrets') {
+    const subtype = resolveTurretSubtype(cls);
+    if (subtype === 'radar') return `/icons/nato/${sidePrefix}_installation.png`;
+    if (subtype === 'mortar') return `/icons/nato/${sidePrefix}_mortar.png`;
+    if (subtype === 'naval' || subtype === 'sam' || subtype === 'aaa') return `/icons/nato/${sidePrefix}_art.png`;
+    return `/icons/nato/${sidePrefix}_support.png`;
+  }
+
+  if (cls.includes('radar_system') || cls.includes('_radar_') || cls.includes('radar')) {
+    return `/icons/nato/${sidePrefix}_installation.png`;
+  }
+  if (cls.includes('ship_mrls') || cls.includes('_mrls_') || cls.includes('vls')) {
+    return `/icons/nato/${sidePrefix}_art.png`;
+  }
+
+  return null;
+}
+
+function isAIGenericVehicleClass(vehicleClass?: string): boolean {
+  const cls = (vehicleClass ?? '').trim().toLowerCase();
+  if (!cls) return false;
+  return cls === 'b_uav_ai' || cls === 'o_uav_ai' || cls === 'i_uav_ai' || cls.endsWith('_uav_ai') || cls.endsWith('_ugv_ai') || /(^|[_\-])ai($|[_\-])/.test(cls);
+}
+
+function vehicleIconHtml(category: string, color: string, dir: number, size: number, vehicleClass?: string, side = 'unknown'): string {
   const icon = categoryToIconFile(category, vehicleClass);
-  return `<div style="width:${size}px;height:${size}px;` +
+  const natoMarkerPath = natoVehicleMarkerPath(vehicleClass, side, category);
+  const maskPath = natoMarkerPath ?? `/icons/vehicles/${icon}.png`;
+  const aiBadge = isAIGenericVehicleClass(vehicleClass)
+    ? `<div style="position:absolute;right:-2px;bottom:-4px;padding:1px 4px;border-radius:3px;background:rgba(0,0,0,0.82);border:1px solid rgba(255,255,255,0.55);color:#fff;font-size:9px;font-weight:800;line-height:1;letter-spacing:0.3px;">AI</div>`
+    : '';
+  return `<div style="position:relative;width:${size}px;height:${size}px;">` +
+    `<div style="width:${size}px;height:${size}px;` +
     `background-color:${color};` +
-    `-webkit-mask-image:url(/icons/vehicles/${icon}.png);` +
-    `mask-image:url(/icons/vehicles/${icon}.png);` +
+    `-webkit-mask-image:url(${maskPath});` +
+    `mask-image:url(${maskPath});` +
     `-webkit-mask-size:contain;mask-size:contain;` +
     `-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;` +
     `-webkit-mask-position:center;mask-position:center;` +
     `transform:rotate(${dir}deg);transform-origin:center;` +
     `filter:drop-shadow(1px 0 0 rgba(0,0,0,0.6)) drop-shadow(-1px 0 0 rgba(0,0,0,0.6)) drop-shadow(0 1px 0 rgba(0,0,0,0.6)) drop-shadow(0 -1px 0 rgba(0,0,0,0.6));` +
-    `"></div>`;
+    `"></div>` +
+    aiBadge +
+    `</div>`;
 }
 
 function vehicleSvg(category: string, color: string, dir: number, vehicleClass?: string): string {
-  const s = 'rgba(0,0,0,0.75)';
+  const s = '#000';
   const sw = '1.2';
   const wrap = (body: string) =>
     `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 40 40"` +
@@ -1204,7 +1161,7 @@ function vehicleSvg(category: string, color: string, dir: number, vehicleClass?:
         `<line x1="20" y1="16" x2="20" y2="12" stroke="${s}" stroke-width="1.2"/>`
       );
     case 'Mines':
-      // Red caution triangle — ⚠ warning icon (not rotated by dir)
+      // Red caution triangle   warning icon (not rotated by dir)
       return `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 40 40" style="display:block;">` +
         `<polygon points="20,4 37,34 3,34" fill="#cc2222" stroke="#880000" stroke-width="2" stroke-linejoin="round"/>` +
         `<text x="20" y="29" text-anchor="middle" fill="#fff" font-weight="bold" font-size="20" font-family="Arial,sans-serif">!</text>` +
@@ -1246,62 +1203,50 @@ function vehicleIcon(vehicle: Vehicle, units: Record<string, Unit>, category: st
     const preferred = occupants.find(u => u.playerName?.trim()) ?? occupants[0];
     side = preferred?.side ?? 'unknown';
   }
+
+  let dir = Number.isFinite(vehicle.dir) ? vehicle.dir : 0;
+  if (Math.abs(dir) < 0.001) {
+    const crewDir = firstCrew ? units[firstCrew.unitId]?.dir : undefined;
+    if (typeof crewDir === 'number' && Number.isFinite(crewDir)) {
+      dir = crewDir;
+    } else {
+      const occupants = Object.values(units).filter(u => u.vehicleId === vehicle.id);
+      const preferred = occupants.find(u => u.playerName?.trim()) ?? occupants[0];
+      if (preferred && Number.isFinite(preferred.dir)) dir = preferred.dir;
+    }
+  }
+
   const color = sideColor(side);
   const size = 80;
   return L.divIcon({
     className:  '',
     iconSize:   [size, size],
     iconAnchor: [size / 2, size / 2],
-    html: vehicleIconHtml(category, color, vehicle.dir, size, vehicle.class),
+    html: vehicleIconHtml(category, color, dir, size, vehicle.class, side),
   });
 }
 
-// â”€â”€ Layer manager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Layer manager 
 
 // Static contour styling (from pre-computed Athena Desktop cache)
 // sea level -> blue; index (div 100m) -> darker/thicker brown; major (div 20m) -> medium brown
 function contourStyle(z: number): { color: string; weight: number; opacity: number } {
-  if (z === 0)        return { color: '#8492a8', weight: 0.7, opacity: 0.7 };
-  if (z % 100 === 0)  return { color: '#7f8ea5', weight: 0.8, opacity: 0.76 };
-  return                     { color: '#a9b5c5', weight: 0.5, opacity: 0.58 };
+  // Bus exact: MapHelper.cs PopulateHeights  uniform strokeThickness 0.75
+  // Colors: MediumBlue (Z=0), DodgerBlue (Z<0), RosyBrown (Z>0)
+  if (z === 0) return { color: '#0000CD', weight: 0.75, opacity: 1 };  // MediumBlue
+  if (z < 0)   return { color: '#1E90FF', weight: 0.75, opacity: 1 };  // DodgerBlue
+  return              { color: '#BC8F8F', weight: 0.75, opacity: 1 };  // RosyBrown
 }
 
-// Smooth stair-stepped contour rings from grid-derived data (e.g. coastline Z=0)
-// using 2 iterations of Chaikin corner-cutting. This preserves overall shape while
-// removing blocky orthogonal corners.
-function smoothRing(points: [number, number][], iterations = 2): [number, number][] {
-  if (points.length < 4) return points;
-  let ring = points;
-  for (let it = 0; it < iterations; it++) {
-    const out: [number, number][] = [];
-    const n = ring.length;
-    for (let i = 0; i < n; i++) {
-      const p0 = ring[i];
-      const p1 = ring[(i + 1) % n];
-      // Q and R points for Chaikin subdivision
-      out.push([
-        0.75 * p0[0] + 0.25 * p1[0],
-        0.75 * p0[1] + 0.25 * p1[1],
-      ]);
-      out.push([
-        0.25 * p0[0] + 0.75 * p1[0],
-        0.25 * p0[1] + 0.75 * p1[1],
-      ]);
-    }
-    ring = out;
-  }
-  return ring;
-}
+import type { LayerVisibility, RenderMode } from '../types/ui';
 
-import type { LayerVisibility, RenderMode } from '../App';
-
-// Elevation colour ramp helpers — Bus Athena Desktop palette.
-// HeatMap 1 (ground forces): green #0A7002 → red smooth transition
+// Elevation colour ramp helpers  Bus Athena Desktop palette.
+// HeatMap 1 (ground forces): green #0A7002  red smooth transition
 function topoColorHeatmap1(t: number): [number, number, number] {
-  // Simple 2-stop ramp: green at low elevation → red at high elevation
-  const r = Math.round(10 + t * (200 - 10));    // 10 → 200
-  const g = Math.round(112 - t * (112 - 10));   // 112 → 10
-  const b = Math.round(2 + t * (5 - 2));        // 2 → 5
+  // Simple 2-stop ramp: green at low elevation  red at high elevation
+  const r = Math.round(10 + t * (200 - 10));    // 10  200
+  const g = Math.round(112 - t * (112 - 10));   // 112  10
+  const b = Math.round(2 + t * (5 - 2));        // 2  5
   return [r, g, b];
 }
 
@@ -1309,9 +1254,8 @@ interface LayerManagerProps {
   units:      Record<string, Unit>;
   vehicles:   Record<string, Vehicle>;
   groups:     Record<string, Group>;
-  lazes:      ActiveLaze[];
-  firedEvents: FiredEvent[];
-  firedImpacts: FiredImpactEvent[];
+  /** Unit ids to draw with the "just fired" pulse (supplied by apps with shot telemetry). */
+  pulseUnitIds: Set<string>;
   world:      string;
   worldSize:  number;
   roads:      Road[];
@@ -1325,22 +1269,10 @@ interface LayerManagerProps {
   renderMode: RenderMode;
   vehicleMap:  Map<string, string>;
   locationMap: Map<string, { DrawStyle: string; SizeText: number; Name: string }>;
-  onProjectileDebugChange?: (entries: ProjectileDebugEntry[]) => void;
+  shorelineRefreshToken: number;
 }
 
-type ProjectileDebugEntry = {
-  id: string;
-  trackKey: string;
-  shooter: string;
-  weapon: string;
-  lock: 'LAZE' | 'UNIT' | 'FREE';
-  source: string;
-  etaSec: number;
-  target: string;
-  lockSwitched: boolean;
-};
-
-function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpacts, world, worldSize, roads, forests: _forests, locations, structures, elevations, contours, layers, onLayersChange, renderMode, vehicleMap, locationMap, onProjectileDebugChange }: LayerManagerProps) {
+function LayerManager({ units, vehicles, groups, pulseUnitIds, world, worldSize, roads, forests: _forests, locations, structures, elevations, contours, layers, renderMode, vehicleMap, locationMap, shorelineRefreshToken }: LayerManagerProps) {
   const map = useMap();
 
   useEffect(() => {
@@ -1359,16 +1291,25 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
   // Static-layer caching: these layers render once per world and are never rebuilt.
   // When the world name changes all flags reset so they re-render for the new map.
   const staticCacheRef = useRef({ world: '', roads: false, locations: false, structures: false, objects: false, forests: false, trees: false, treesWorld: '', objectsWorld: '', roadsWorld: '' });
-  const landCacheRef = useRef({ world: '', ready: false });
+  const landCacheRef = useRef<{ world: string; ready: boolean; source?: string }>({ world: '', ready: false });
+  const landRefreshTokenRef = useRef(shorelineRefreshToken);
 
   useEffect(() => {
     if (!world || world === staticCacheRef.current.world) return;
     staticCacheRef.current = { world, roads: false, locations: false, structures: false, objects: false, forests: false, trees: false, treesWorld: '', objectsWorld: '', roadsWorld: '' };
     hasStaticTreesRef.current = false;
     setHasRuntimeTrees(false);
-    landCacheRef.current = { world, ready: false };
+    landCacheRef.current = { world, ready: false, source: undefined };
     landLayerRef.current.clearLayers();
   }, [world]);
+
+  useEffect(() => {
+    if (!world) return;
+    if (shorelineRefreshToken === landRefreshTokenRef.current) return;
+    landRefreshTokenRef.current = shorelineRefreshToken;
+    landCacheRef.current = { world: '', ready: false, source: undefined };
+    landLayerRef.current.clearLayers();
+  }, [world, shorelineRefreshToken]);
 
   // Layer groups (created once, never recreated)
   const forestLayerRef     = useRef<L.LayerGroup>(L.layerGroup());
@@ -1379,14 +1320,6 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
   const topoLayerRef       = useRef<L.LayerGroup>(L.layerGroup());
   const groupLayerRef      = useRef<L.LayerGroup>(L.layerGroup());
   const waypointLayerRef    = useRef<L.LayerGroup>(L.layerGroup());
-  const lazeLayerRef        = useRef<L.LayerGroup>(L.layerGroup());
-  const projectileLayerRef = useRef<L.LayerGroup>(L.layerGroup());
-  const projectileLaunchRef = useRef<Map<string, { x: number; y: number; dir: number }>>(new Map());
-  const projectileLockRef = useRef<Map<string, GuidedLock>>(new Map());
-  const projectileTerminalRef = useRef<Map<string, number>>(new Map());
-  const projectileLastEtaRef = useRef<Map<string, number>>(new Map());
-  const projectileLockModeRef = useRef<Map<string, 'LAZE' | 'UNIT' | 'FREE'>>(new Map());
-  const projectileLockSwitchAtRef = useRef<Map<string, number>>(new Map());
   const vehicleLayerRef    = useRef<L.LayerGroup>(L.layerGroup());
   const contourLayerRef    = useRef<L.LayerGroup>(L.layerGroup());
   const coastLayerRef      = useRef<L.LayerGroup>(L.layerGroup());
@@ -1399,32 +1332,15 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
 
   // Track map zoom level so vehicle crew labels can appear/disappear reactively
   const [mapZoom, setMapZoom] = useState(() => map.getZoom());
-  const [clockMs, setClockMs] = useState(() => Date.now());
   useEffect(() => {
     const onZoom = () => setMapZoom(map.getZoom());
     map.on('zoomend', onZoom);
     return () => { map.off('zoomend', onZoom); };
   }, [map]);
 
-  useEffect(() => {
-    const timer = window.setInterval(() => setClockMs(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const recentShooterIds = useMemo(() => {
-    const set = new Set<string>();
-    const blinkWindowMs = 2200;
-    firedEvents.forEach(ev => {
-      if (!ev.unitId) return;
-      const atMs = Date.parse(ev.at);
-      if (!Number.isFinite(atMs)) return;
-      const age = clockMs - atMs;
-      if (age >= 0 && age <= blinkWindowMs) {
-        set.add(ev.unitId);
-      }
-    });
-    return set;
-  }, [firedEvents, clockMs]);
+  // Units that fired recently get a pulse on their unit/vehicle/group marker.
+  // Computed by the app from its shot telemetry (AR); empty in Web2.
+  const recentShooterIds = pulseUnitIds;
 
   // Create custom panes with fixed z-indices so layer order is always maintained
   // regardless of toggle sequence (addTo re-inserts at DOM end, breaking stacking).
@@ -1442,21 +1358,21 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     mk('athena-road',       300);
     mk('athena-structure',  310);
     mk('athena-peak',       360);
-    mk('athena-objects',    205);  // buildings/objects — auto-shown at zoom ≥2x
+    mk('athena-objects',    205);  // buildings/objects  auto-shown at zoom 2x
     mk('athena-tree',       207);  // individual trees above objects
     mk('athena-location',   600);
     mk('athena-vehicle',    700);
     mk('athena-unit',       710);
-    mk('athena-waypoint',   715);  // waypoint lines — always visible, between units and groups
+    mk('athena-waypoint',   715);  // waypoint lines  always visible, between units and groups
     mk('athena-laze',       716);  // active laser designation points
     mk('athena-projectile', 717);  // simulated projectile paths
     mk('athena-group',      720);  // groups on top of units/vehicles
     // Pane-specific canvas renderers keep road and structure toggles independent.
     roadCanvasRef.current = L.canvas({ padding: 0.5, pane: 'athena-road' });
     structureCanvasRef.current = L.canvas({ padding: 0.5, pane: 'athena-structure' });
-    // Ocean / sea background — visible wherever no elevation tile covers
-    map.getContainer().style.background = '#B5E1E5';
-    // Add all layer groups once — they stay on the map forever;
+    // Bus exact: ocean base = Colors.PowderBlue (#B0E0E6)
+    map.getContainer().style.background = '#B0E0E6';
+    // Add all layer groups once  they stay on the map forever;
     // visibility is controlled by pane CSS (and addTo/removeLayer for locations)
     landLayerRef.current.addTo(map);
     contourLayerRef.current.addTo(map);
@@ -1471,8 +1387,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     objectLayerRef.current.addTo(map);
     groupLayerRef.current.addTo(map);
     waypointLayerRef.current.addTo(map);
-    lazeLayerRef.current.addTo(map);
-    projectileLayerRef.current.addTo(map);
+    // Laze/projectile layers are supplied by AR via the `mapExtensions` slot.
     vehicleLayerRef.current.addTo(map);
     unitLayerRef.current.addTo(map);
   }, [map]);
@@ -1511,8 +1426,10 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     showPane('athena-peak',      layers.locations);
     showPane('athena-group',     layers.groups);
     showPane('athena-waypoint',  layers.waypoints);
-    showPane('athena-laze',      layers.lazes);
-    showPane('athena-projectile', layers.projectiles);
+    // Laze/projectile layers only exist in apps whose data source provides that
+    // telemetry (AR's extension DLL); see CAPABILITIES in appConfig.ts.
+    showPane('athena-laze',      CAPABILITIES.lazes && layers.lazes);
+    showPane('athena-projectile', CAPABILITIES.projectiles && layers.projectiles);
     showPane('athena-vehicle',   layers.vehicles);
     showPane('athena-unit',      layers.units);
     // objects are always visible
@@ -1524,7 +1441,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     }
   }, [map, layers, renderMode, structures.length, hasRuntimeTrees]);
 
-  // ── Trees — precise points from static cache (zoomed-in only) ───────────────────────────
+  //  Trees  precise points from static cache (zoomed-in only) 
   useEffect(() => {
     // Reset cache when world changes
     if (staticCacheRef.current.treesWorld !== world) {
@@ -1576,10 +1493,12 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       staticCacheRef.current.treesWorld = world;
     };
 
-    const fetchTrees = () => fetch(`${API_BASE}/api/game/trees`)
+    const fetchTrees = () => fetch(MAP_DATA.treesUrl())
       .then(r => {
         console.log(`[Trees] Runtime API response status: ${r.status}`);
-        return r.ok ? r.json() : null;
+        // AR's backend answers 204 No Content when it has no trees; parsing that
+        // empty body as JSON throws, so treat it like "no runtime trees".
+        return r.ok && r.status !== 204 ? r.json() : null;
       })
       .then((runtime: Array<{ x: number; y: number }> | null) => {
         if (!runtime || runtime.length === 0 || cancelled) {
@@ -1614,18 +1533,15 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     };
   }, [world, worldSize, map]);
 
-  // ── Objects — vector tile rendering (sharp at every zoom, like roads) ──────────────────
+  //  Objects  vector tile rendering (sharp at every zoom, like roads) 
   useEffect(() => {
     objectLayerRef.current.clearLayers();
     // Do not render raw Objects.txt from Athena Desktop cache here.
     // Runtime/cached structures from our own export pipeline render via the structure layer.
   }, [world, worldSize]);
 
-  // ── Zoom auto-show for tree pane + unit/vehicle ↔ group auto-toggle ──────────────────
+  //  Zoom auto-show for tree/forest panes only 
   useEffect(() => {
-    const UNIT_GROUP_THRESHOLD = 2.5;  // Swap groups ↔ units at 2.5x display scale
-    // Initialise to opposite of current zone so the first update() establishes correct state.
-    const prevZoneRef = { current: !(zoomToDisplayScale(map.getZoom()) >= UNIT_GROUP_THRESHOLD) };
     const update = () => {
       const z = map.getZoom();
       const scale = zoomToDisplayScale(z);
@@ -1640,49 +1556,75 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       if (fp) fp.style.display = showForest ? '' : 'none';
       const op = map.getPane('athena-objects');
       if (op) op.style.display = '';
-      // At scale < 2.5x (zoomed out): show groups, hide units + vehicles
-      // At scale ≥ 2.5x (zoomed in):  show units + vehicles, hide groups
-      // Auto-toggle fires only when crossing the threshold;
-      // user can still override manually within a zoom zone.
-      const inUnitZone = scale >= UNIT_GROUP_THRESHOLD;
-      if (inUnitZone !== prevZoneRef.current) {
-        prevZoneRef.current = inUnitZone;
-        onLayersChange?.(prev => ({
-          ...prev,
-          groups:   !inUnitZone,
-          vehicles:  inUnitZone,
-          units:     inUnitZone,
-        }));
-      }
     };
     map.on('zoomend', update);
     update(); // apply immediately on mount
     return () => { map.off('zoomend', update); };
-  }, [map, onLayersChange, layers.forest, layers.trees, hasRuntimeTrees]);
+  }, [map, layers.forest, layers.trees, hasRuntimeTrees]);
 
-  // ── Land silhouette — permanent base showing land (#FEFFEF) vs ocean (transparent) ───────
+  //  Land silhouette  permanent base showing land (Ivory #FFFFF0) vs ocean (transparent) 
   // Tries vector fill from static Z=0 contour first (smooth/exact coastline),
   // then falls back to static raster land mask, then Arma elevation data.
   useEffect(() => {
     if (!world) {
-      landCacheRef.current = { world: '', ready: false };
+      landCacheRef.current = { world: '', ready: false, source: undefined };
       landLayerRef.current.clearLayers();
       return;
     }
 
-    // Keep the existing land layer stable once rendered for the active world.
+    // If we already rendered the Z=0 vector coastline for this world, keep it stable.
+    // But if only a fallback was used, allow re-render when contours arrive.
+    const hasZ0 = contours.some(c => c.z === 0 && c.lines.length > 0);
     if (landCacheRef.current.world === world && landCacheRef.current.ready) {
-      return;
+      if (landCacheRef.current.source === 'z0' || !hasZ0) return;
+      // Z=0 contours just arrived and we only had a fallback  upgrade below.
     }
 
-    landLayerRef.current.clearLayers();
+    // Don't clear layers upfront  only clear when we have replacement content ready.
+    // This prevents the map flashing blue during async fetches.
     let cancelled = false;
 
     async function buildLandLayer() {
-      // ── Path 0: static Z=0 contour polygon fill (smooth, exact coastline) ─
+      const dilateMask = (src: Uint8Array, width: number, height: number): Uint8Array => {
+        const out = src.slice();
+        for (let y = 0; y < height; y += 1) {
+          for (let x = 0; x < width; x += 1) {
+            const idx = y * width + x;
+            if (!src[idx]) continue;
+            for (let oy = -1; oy <= 1; oy += 1) {
+              for (let ox = -1; ox <= 1; ox += 1) {
+                const nx = x + ox;
+                const ny = y + oy;
+                if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+                out[ny * width + nx] = 1;
+              }
+            }
+          }
+        }
+        return out;
+      };
+
+      const applyLastResortLandFallback = () => {
+        if (cancelled) return;
+        // Only apply if nothing better is already showing
+        if (landCacheRef.current.world === world && landCacheRef.current.ready) return;
+        landLayerRef.current.clearLayers();
+        L.rectangle([[0, 0], [100, 100]], {
+          pane: 'athena-land',
+          stroke: false,
+          fillColor: '#FFFFF0',
+          fillOpacity: 1,
+          interactive: false,
+        }).addTo(landLayerRef.current);
+        landCacheRef.current = { world, ready: true, source: 'fallback' };
+      };
+
+      // Path 0 (primary): Z=0 contour polygon fill (vector coastline).
+      // Prefer this first to avoid blocky shoreline edges from downscaled raster masks.
       const z0 = contours.find(c => c.z === 0);
       if (z0 && z0.lines.length > 0) {
         const scale = 100 / worldSize;
+        const coastEpsilon = coastlineSimplifyEpsilon(worldSize);
         const rings: L.LatLngExpression[][] = z0.lines
           .map(flat => {
             const pts: L.LatLngExpression[] = [];
@@ -1690,61 +1632,98 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
               // [lat=Y, lng=X] in normalised 0..100 map space
               pts.push([flat[i + 1] * scale, flat[i] * scale]);
             }
-            return pts;
+            // Apply same Chaikin smoothing as coastline polyline so polygon edge
+            // and drawn shoreline line stay perfectly aligned (fixes fill bleed).
+            return smoothPolylineChaikin(
+              simplifyClosedRing(pts as [number, number][], coastEpsilon),
+              2, true
+            ) as L.LatLngExpression[];
           })
           .filter(r => r.length >= 3);
 
         if (rings.length > 0) {
+          if (cancelled) return;
+          landLayerRef.current.clearLayers();
+          // smoothFactor:0 so Leaflet doesn't re-simplify at each zoom level;
+          // our Chaikin+RDP pre-processing is the only simplification applied,
+          // keeping polygon edge pixel-perfect with the coast polyline above it.
           L.polygon(rings, {
             pane:        'athena-land',
-            stroke:      false,
-            fillColor:   '#FEFFEF',
+            stroke:      true,
+            color:       '#FFFFF0',
+            weight:      2,
+            lineJoin:    'miter',
+            lineCap:     'butt',
+            fillColor:   '#FFFFF0',
             fillOpacity: 1,
             fillRule:    'evenodd',
-            smoothFactor: 1,
+            smoothFactor: 0,
             interactive: false,
           }).addTo(landLayerRef.current);
-          landCacheRef.current = { world, ready: true };
-          return; // primary land base rendered; avoid stacking a second world layer
+          landCacheRef.current = { world, ready: true, source: 'z0' };
+          return;
         }
       }
 
-      // ── Path 1: static Bus cache land mask (fast, pre-computed) ──────────
+      // Path 1 (fallback): static raster land mask for fully solid land/ocean fill.
       if (world) {
         try {
-          const resp = await fetch(
-            `${API_BASE}/api/staticmap/${encodeURIComponent(world)}/landmask?gridSize=1024`);
+          const resp = await fetch(MAP_DATA.landmaskUrl(world, MAP_DATA.landmaskGridSize));
           if (!cancelled && resp.ok) {
             const data: { width: number; height: number; worldSize: number; mask: string } =
               await resp.json();
             const bytes = Uint8Array.from(atob(data.mask), c => c.charCodeAt(0));
+            const grown = dilateMask(bytes, data.width, data.height);
+            let landPixels = 0;
+            for (let i = 0; i < grown.length; i += 1) if (grown[i]) landPixels += 1;
+            if (landPixels === 0) throw new Error('Land mask contained no land pixels');
             const cvs   = document.createElement('canvas');
             cvs.width = data.width; cvs.height = data.height;
             const ctx = cvs.getContext('2d')!;
             const img = ctx.createImageData(data.width, data.height);
-            for (let i = 0; i < bytes.length; i++) {
-              if (bytes[i]) {
-                const o = i * 4;
-                img.data[o] = 254; img.data[o+1] = 255; img.data[o+2] = 239; img.data[o+3] = 255;
+            for (let gy = 0; gy < data.height; gy++) {
+              // Canvas row 0 = top of image = north. With a south-first mask
+              // (row 0 = worldY 0, Web2 bridge) flip vertically so south maps to
+              // the bottom of the overlay; a north-first mask is already in image order.
+              const srcRow = (MAP_DATA.landmaskRowOrder === 'south-first'
+                ? (data.height - 1 - gy)
+                : gy) * data.width;
+              for (let gx = 0; gx < data.width; gx++) {
+                if (grown[srcRow + gx]) {
+                  const o = (gy * data.width + gx) * 4;
+                  img.data[o] = 255; img.data[o+1] = 255; img.data[o+2] = 240; img.data[o+3] = 255;
+                }
               }
             }
             ctx.putImageData(img, 0, 0);
+            landLayerRef.current.clearLayers();
             const ov = L.imageOverlay(cvs.toDataURL('image/png'), [[0, 0], [100, 100]], {
               opacity: 1, interactive: false, pane: 'athena-land',
             }).addTo(landLayerRef.current);
             const el = ov.getElement();
-            if (el) { el.style.imageRendering = 'auto'; el.style.willChange = 'transform'; }
-            landCacheRef.current = { world, ready: true };
-            return; // done — no need for Arma elevation fallback
+            if (el) {
+              el.classList.add('athena-landmask-overlay');
+              el.style.imageRendering = 'auto';
+              el.style.willChange = 'transform';
+            }
+            landCacheRef.current = { world, ready: true, source: 'fallback' };
+            return;
           }
-        } catch { /* fall through to Arma elevation */ }
+        } catch { /* fall through to elevation fallback */ }
       }
+
       if (cancelled) return;
 
-      // ── Path 2: Arma elevation data (arrives after slow in-game export) ──
-      if (!elevations || elevations.cells.length === 0) return;
+      //  Path 2: Arma elevation data (arrives after slow in-game export) 
+      if (!elevations || elevations.cells.length === 0) {
+        applyLastResortLandFallback();
+        return;
+      }
       const step = elevations.sampleSize;
-      if (!Number.isFinite(step) || step <= 0) return;
+      if (!Number.isFinite(step) || step <= 0) {
+        applyLastResortLandFallback();
+        return;
+      }
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       elevations.cells.forEach(c => {
         if (c.x        < minX) minX = c.x;
@@ -1752,10 +1731,16 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
         if (c.x + step > maxX) maxX = c.x + step;
         if (c.y + step > maxY) maxY = c.y + step;
       });
-      if (!isFinite(minX) || !isFinite(maxX) || !isFinite(maxY)) return;
+      if (!isFinite(minX) || !isFinite(maxX) || !isFinite(maxY)) {
+        applyLastResortLandFallback();
+        return;
+      }
       const cols = Math.round((maxX - minX) / step);
       const rows = Math.round((maxY - minY) / step);
-      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) return;
+      if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 0 || rows <= 0) {
+        applyLastResortLandFallback();
+        return;
+      }
       const cvs  = document.createElement('canvas');
       cvs.width = cols; cvs.height = rows;
       const ctx  = cvs.getContext('2d')!;
@@ -1766,7 +1751,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
         if (col < 0 || col >= cols || row < 0 || row >= rows) return;
         if (c.z > 0) {
           const idx = (row * cols + col) * 4;
-          img.data[idx] = 254; img.data[idx+1] = 255; img.data[idx+2] = 239; img.data[idx+3] = 255;
+          img.data[idx] = 255; img.data[idx+1] = 255; img.data[idx+2] = 240; img.data[idx+3] = 255;
         }
       });
       ctx.putImageData(img, 0, 0);
@@ -1775,19 +1760,20 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
         [minY * scale, minX * scale],
         [maxY * scale, maxX * scale],
       ];
+      landLayerRef.current.clearLayers();
       const ov = L.imageOverlay(cvs.toDataURL('image/png'), bounds, {
         opacity: 1, interactive: false, pane: 'athena-land',
       }).addTo(landLayerRef.current);
       const el = ov.getElement();
       if (el) { el.style.imageRendering = 'pixelated'; el.style.willChange = 'transform'; }
-      landCacheRef.current = { world, ready: true };
+      landCacheRef.current = { world, ready: true, source: 'fallback' };
     }
 
     buildLandLayer();
     return () => { cancelled = true; };
   }, [contours, world, elevations, worldSize]);
 
-  // ── Elevation layers (topo colour ramp + greyscale + contour lines) ─────────────────────
+  //  Elevation layers (topo colour ramp + greyscale + contour lines) 
   useEffect(() => {
     topoLayerRef.current.clearLayers();
     if (!elevations || elevations.cells.length === 0) return;
@@ -1811,7 +1797,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     if (!Number.isFinite(cols) || !Number.isFinite(rows) || cols <= 1 || rows <= 1) return;
     const zRange = maxZ - minZ;
 
-    // Render at 3× the grid resolution so contour lines are anti-aliased and smooth
+    // Render at 3 the grid resolution so contour lines are anti-aliased and smooth
     // when the image overlay is stretched to fill the Leaflet map bounds.
     const UP = 3;
     const W  = cols * UP;
@@ -1839,13 +1825,13 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       // Choose fill colour by render mode
       let fr: number, fg: number, fb: number, fa: number;
       if (renderMode === '2d') {
-        fr = fg = fb = fa = 0;  // fully transparent — land base layer provides the colour
+        fr = fg = fb = fa = 0;  // fully transparent  land base layer provides the colour
       } else if (renderMode === 'heatmap2') {
-        const v = Math.round(255 - t * 255); fr = fg = fb = v; fa = 200;  // white → black
+        const v = Math.round(255 - t * 255); fr = fg = fb = v; fa = 200;  // white  black
       } else {
         [fr, fg, fb] = topoColorHeatmap1(t); fa = 200;       // heatmap1 (default)
       }
-      // Fill UP×UP block per cell in the upscaled image data
+      // Fill UPUP block per cell in the upscaled image data
       for (let dy = 0; dy < UP; dy++) {
         for (let dx = 0; dx < UP; dx++) {
           const idx = ((row * UP + dy) * W + (col * UP + dx)) * 4;
@@ -1858,38 +1844,40 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     // Commit colour-fill pixels first so contour strokes render on top.
     topoCtx.putImageData(topoImg, 0, 0);
     // Scale context so all existing moveTo/lineTo coordinates (in grid pixels)
-    // automatically map to the upscaled canvas — no changes needed below.
+    // automatically map to the upscaled canvas  no changes needed below.
     topoCtx.scale(UP, UP);
 
-    // ── Marching squares contour lines ────────────────────────────────────────
+    //  Marching squares contour lines 
     // Contour style cadence matches original Athena Desktop:
-    //   every 10 m → thin brown (faint texture)
-    //   every 30 m → medium stroke
-    //   every 60 m → bolder
-    //   every 120 m → boldest, always visible
-    //   sea level (z=0) → blue
+    //   every 10 m  thin brown (faint texture)
+    //   every 30 m  medium stroke
+    //   every 60 m  bolder
+    //   every 120 m  boldest, always visible
+    //   sea level (z=0)  blue
     const minZ10 = Math.ceil (minZ / 10) * 10;
     const maxZ10 = Math.floor(maxZ / 10) * 10;
 
-    for (let z = minZ10; z <= maxZ10; z += 10) {
-      const is120 = z % 120 === 0;
-      const is60  = z % 60  === 0;
-      const is30  = z % 30  === 0;
-
-      // Opacity and line width by cadence
-      const alpha = is120 ? 0.85 : is60 ? 0.65 : is30 ? 0.45 : 0.18;
-      const lw    = is120 ? 1.5  : is60 ? 1.1  : is30 ? 0.7  : 0.35;
-
+    // Do not render bathymetric (underwater) contour lines.
+    for (let z = Math.max(0, minZ10); z <= maxZ10; z += 10) {
+      // Bus exact: uniform strokeThickness 0.75, full opacity
+      // Colors: MediumBlue (Z=0), DodgerBlue (Z<0), RosyBrown (Z>0)
       if (z === 0) {
-        topoCtx.strokeStyle = `rgba(30,30,200,${alpha})`;
+        topoCtx.strokeStyle = '#0000CD';   // MediumBlue
       } else if (z < 0) {
-        topoCtx.strokeStyle = `rgba(30,100,220,${alpha})`;
+        topoCtx.strokeStyle = '#1E90FF';   // DodgerBlue
       } else {
-        // RosyBrown family — original uses Colors.RosyBrown (#bc8f8f)
-        topoCtx.strokeStyle = `rgba(120,75,55,${alpha})`;
+        topoCtx.strokeStyle = '#BC8F8F';   // RosyBrown
       }
-      topoCtx.lineWidth = lw;
+      topoCtx.lineWidth = 0.75;
+      topoCtx.lineJoin = 'miter';
+      topoCtx.lineCap = 'butt';
       topoCtx.beginPath();
+
+      const edgeT = (a: number, b: number): number => {
+        const denom = b - a;
+        if (!Number.isFinite(denom) || Math.abs(denom) < 1e-9) return 0.5;
+        return clamp((z - a) / denom, 0, 1);
+      };
 
       // Standard 16-case marching squares lookup.
       // Bit ordering: tl=8, tr=4, br=2, bl=1.
@@ -1906,34 +1894,44 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
           const ci = ((vTL >= z ? 8 : 0) | (vTR >= z ? 4 : 0)
                     | (vBR >= z ? 2 : 0) | (vBL >= z ? 1 : 0));
 
+          const tTop = edgeT(vTL, vTR);
+          const tRight = edgeT(vTR, vBR);
+          const tBottom = edgeT(vBL, vBR);
+          const tLeft = edgeT(vTL, vBL);
+
+          const top: [number, number] = [c2 + tTop, r];
+          const right: [number, number] = [c2 + 1, r + tRight];
+          const bottom: [number, number] = [c2 + tBottom, r + 1];
+          const left: [number, number] = [c2, r + tLeft];
+
           // Each case draws 0-2 line segments between edge midpoints.
-          // Using moveTo+lineTo batched inside a single beginPath for performance.
+          // Interpolated edge points reduce blocky stair-steps and preserve diagonals.
           switch (ci) {
-            case  1: case 14:  // left → bottom
-              topoCtx.moveTo(c2 + 0.5, r + 1);  topoCtx.lineTo(c2,       r + 0.5); break;
-            case  2: case 13:  // bottom → right
-              topoCtx.moveTo(c2 + 0.5, r + 1);  topoCtx.lineTo(c2 + 1,   r + 0.5); break;
-            case  3: case 12:  // left → right
-              topoCtx.moveTo(c2,       r + 0.5); topoCtx.lineTo(c2 + 1,   r + 0.5); break;
-            case  4: case 11:  // top → right
-              topoCtx.moveTo(c2 + 0.5, r);       topoCtx.lineTo(c2 + 1,   r + 0.5); break;
+            case  1: case 14:  // left  bottom
+              topoCtx.moveTo(bottom[0], bottom[1]); topoCtx.lineTo(left[0], left[1]); break;
+            case  2: case 13:  // bottom  right
+              topoCtx.moveTo(bottom[0], bottom[1]); topoCtx.lineTo(right[0], right[1]); break;
+            case  3: case 12:  // left  right
+              topoCtx.moveTo(left[0], left[1]); topoCtx.lineTo(right[0], right[1]); break;
+            case  4: case 11:  // top  right
+              topoCtx.moveTo(top[0], top[1]); topoCtx.lineTo(right[0], right[1]); break;
             case  5:           // saddle: (tl+br above, tr+bl below)
-              topoCtx.moveTo(c2,       r + 0.5); topoCtx.lineTo(c2 + 0.5, r);
-              topoCtx.moveTo(c2 + 0.5, r + 1);   topoCtx.lineTo(c2 + 1,   r + 0.5); break;
-            case  6: case  9:  // top → bottom
-              topoCtx.moveTo(c2 + 0.5, r);       topoCtx.lineTo(c2 + 0.5, r + 1);   break;
-            case  7: case  8:  // top → left
-              topoCtx.moveTo(c2 + 0.5, r);       topoCtx.lineTo(c2,       r + 0.5); break;
+              topoCtx.moveTo(left[0], left[1]); topoCtx.lineTo(top[0], top[1]);
+              topoCtx.moveTo(bottom[0], bottom[1]); topoCtx.lineTo(right[0], right[1]); break;
+            case  6: case  9:  // top  bottom
+              topoCtx.moveTo(top[0], top[1]); topoCtx.lineTo(bottom[0], bottom[1]); break;
+            case  7: case  8:  // top  left
+              topoCtx.moveTo(top[0], top[1]); topoCtx.lineTo(left[0], left[1]); break;
             case 10:           // saddle: (tl+br above, tr+bl below)
-              topoCtx.moveTo(c2,       r + 0.5); topoCtx.lineTo(c2 + 0.5, r + 1);
-              topoCtx.moveTo(c2 + 0.5, r);       topoCtx.lineTo(c2 + 1,   r + 0.5); break;
+              topoCtx.moveTo(left[0], left[1]); topoCtx.lineTo(bottom[0], bottom[1]);
+              topoCtx.moveTo(top[0], top[1]); topoCtx.lineTo(right[0], right[1]); break;
             // 0, 15: no crossings
           }
         }
       }
       topoCtx.stroke();
     }
-    // ── End contour lines ─────────────────────────────────────────────────────
+    //  End contour lines 
 
     const scale  = 100 / worldSize;
     const bounds: L.LatLngBoundsExpression = [
@@ -1941,18 +1939,18 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       [maxY * scale, maxX * scale],
     ];
     const topoOv = L.imageOverlay(topoCvs.toDataURL('image/png'), bounds,
-      { opacity: 0.75, interactive: false, pane: 'athena-topo' })
+      { opacity: 1, interactive: false, pane: 'athena-topo' })
       .addTo(topoLayerRef.current);
     const topoEl = topoOv.getElement();
     if (topoEl) topoEl.style.willChange = 'transform';
 
-    // ── Peak markers (local terrain maxima) ───────────────────────────────────
+    //  Peak markers (local terrain maxima) 
     // Detect cells that are the highest point within a sliding-window radius,
     // matching the summit triangles Arma renders on its in-game map.
     peakLayerRef.current.clearLayers();
-    const RADIUS   = 16;  // cells (~512 m at 32 m step) — only dominant summits
+    const RADIUS   = 16;  // cells (~512 m at 32 m step)  only dominant summits
     const MIN_ELEV = 50;  // ignore low hills and coastal bumps
-    const MIN_PROM = 30;  // must be ≥30 m above all neighbors within radius
+    const MIN_PROM = 30;  // must be 30 m above all neighbors within radius
     const sc = 100 / worldSize;
     for (let r = RADIUS; r < rows - RADIUS; r++) {
       for (let c = RADIUS; c < cols - RADIUS; c++) {
@@ -2000,6 +1998,8 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     coastLayerRef.current.clearLayers();
     if (contours.length === 0) return;
     const scale = 100 / worldSize;
+    const contourEpsilon = contourSimplifyEpsilon(worldSize);
+    const coastEpsilon = coastlineSimplifyEpsilon(worldSize);
     contours.forEach(cl => {
       const style = contourStyle(cl.z);
       // Each ContourLine.lines entry is a flat [x0,y0,x1,y1,...] array.
@@ -2009,30 +2009,33 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
           const pts: [number, number][] = [];
           for (let i = 0; i + 1 < flat.length; i += 2)
             pts.push([flat[i + 1] * scale, flat[i] * scale]); // [lat=Y, lng=X]
-          return pts;
+          if (cl.z === 0) return pts;
+          // One Chaikin pass: removes blocky stairstepping without over-rounding.
+          return smoothPolylineChaikin(simplifyPolylineRdp(pts, contourEpsilon), 1, false);
         })
         .filter(p => p.length >= 2);
       if (latlngs.length === 0) return;
 
       // Sea-level coastline gets a dedicated pane in 2D mode so it stays visible
       // above forests and land fill, with a crisp outer + inner stroke.
+      if (cl.z < 0) {
+        return;
+      }
+
       if (cl.z === 0) {
-        const smoothLatLngs = latlngs.map(ring => smoothRing(ring));
-        L.polyline(smoothLatLngs, {
-          color:       '#d8e6f8',
-          weight:      2.6,
-          opacity:     0.85,
-          lineJoin:    'round',
-          lineCap:     'round',
-          interactive: false,
-          pane:        'athena-coast',
-        }).addTo(coastLayerRef.current);
-        L.polyline(smoothLatLngs, {
-          color:       '#7789C0',
-          weight:      1.0,
+        const coastLatLngs = latlngs
+          .map(line => smoothPolylineChaikin(simplifyClosedRing(line, coastEpsilon), 2, true))
+          .filter(line => line.length >= 2);
+        // Bus exact: Z=0 coastline = MediumBlue, stroke 0.75
+        // smoothFactor:0 disables Leaflet's own zoom-based simplification so the
+        // polyline pixels sit exactly on the land polygon edge (fixes edge bleed).
+        L.polyline(coastLatLngs, {
+          color:       '#0000CD',
+          weight:      0.75,
           opacity:     1,
           lineJoin:    'round',
           lineCap:     'round',
+          smoothFactor: 0,
           interactive: false,
           pane:        'athena-coast',
         }).addTo(coastLayerRef.current);
@@ -2043,6 +2046,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
           opacity:     style.opacity,
           lineJoin:    'round',
           lineCap:     'round',
+          smoothFactor: 1,
           interactive: false,
           pane:        'athena-contour',
         }).addTo(contourLayerRef.current);
@@ -2074,16 +2078,18 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       if (col < 0 || col >= cols || row < 0 || row >= rows) continue;
 
       const idx = (row * cols + col) * 4;
+      // Bus exact forest colors: ARGB(70, 0, 127, 12) heavy, ARGB(70, 0, 181, 18) light
+      // Alpha 70/255  27.5% opacity. level>=3 = heavy, else = light.
       if (cell.level >= 3) {
-        img.data[idx] = 35;
-        img.data[idx + 1] = 66;
-        img.data[idx + 2] = 36;
-        img.data[idx + 3] = 155;
+        img.data[idx] = 0;
+        img.data[idx + 1] = 127;
+        img.data[idx + 2] = 12;
+        img.data[idx + 3] = 70;
       } else {
-        img.data[idx] = 188;
-        img.data[idx + 1] = 222;
-        img.data[idx + 2] = 180;
-        img.data[idx + 3] = cell.level === 2 ? 110 : 78;
+        img.data[idx] = 0;
+        img.data[idx + 1] = 181;
+        img.data[idx + 2] = 18;
+        img.data[idx + 3] = 70;
       }
     }
     ctx.putImageData(img, 0, 0);
@@ -2099,7 +2105,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     staticCacheRef.current.forests = true;
   }, [_forests, worldSize]);
 
-  // â”€â”€ Road layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Road layer 
   useEffect(() => {
     if (staticCacheRef.current.roads) return; // already rendered for this world
     roadLayerRef.current.clearLayers();
@@ -2111,17 +2117,26 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     // Group road segments by style for batched rendering (~6 layers vs thousands)
     const groups = new Map<string, { color: string; weight: number; segments: [number,number][][] }>();
 
-    // Collect airport surfaces and render them first as base pavement.
+    // Collect hide surfaces and classify them as airport/apron vs dirt-path tiles.
     const airportRoads: Road[] = [];
+    const pathHidePoints: [number, number][] = [];
+    const hideCentersWorld: Array<{ x: number; y: number }> = [];
 
     roads.forEach(road => {
-      // Airport surfaces — collect for later
+      if (road.type.toLowerCase() !== 'hide' || road.width <= 0 || road.length <= 0) return;
+      const cx = road.posX ? road.posX : (road.beg1X + road.end2X) / 2;
+      const cy = road.posY ? road.posY : (road.beg1Y + road.end2Y) / 2;
+      hideCentersWorld.push({ x: cx, y: cy });
+    });
+
+    roads.forEach(road => {
+      // Airport surfaces  collect for later
       if (road.type.toLowerCase() === 'hide' && road.width > 0 && road.length > 0) {
         airportRoads.push(road);
         return;
       }
 
-      const style = roadStyle(road.type, road.foot);
+      const style = roadStyle(road);
       if (!style) return;
 
       const beg: [number, number] = [road.beg1Y * scale, road.beg1X * scale];
@@ -2135,15 +2150,280 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     });
 
     // Pass 1: airport surface tiles first (base layer)
+    const snap = (v: number) => Math.round(v / 20) * 20;
+
+    const hideTileKeys = new Set<string>();
+    const hideByKey = new Map<string, { x: number; y: number }>();
+    hideCentersWorld.forEach(({ x, y }) => {
+      const sx = snap(x);
+      const sy = snap(y);
+      const key = `${sx}_${sy}`;
+      hideTileKeys.add(key);
+      if (!hideByKey.has(key)) hideByKey.set(key, { x: sx, y: sy });
+    });
+
+    const cardinalOffsets = [
+      [20, 0],
+      [-20, 0],
+      [0, 20],
+      [0, -20],
+    ] as const;
+
+    const allOffsets = [
+      ...cardinalOffsets,
+      [20, 20],
+      [20, -20],
+      [-20, 20],
+      [-20, -20],
+    ] as const;
+
+    // Build hide-tile clusters so dense airfield/apron patches stay gray while sparse path chains become dirt.
+    const clusterByKey = new Map<string, { isAirportSurface: boolean }>();
+    const visited = new Set<string>();
+    const clusters: Array<{ keys: string[]; minX: number; maxX: number; minY: number; maxY: number; density: number }> = [];
+
+    hideByKey.forEach(({ x, y }, startKey) => {
+      if (visited.has(startKey)) return;
+      const queue: string[] = [startKey];
+      visited.add(startKey);
+      const keys: string[] = [];
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+
+      while (queue.length > 0) {
+        const key = queue.pop()!;
+        keys.push(key);
+        const tile = hideByKey.get(key);
+        if (!tile) continue;
+        if (tile.x < minX) minX = tile.x;
+        if (tile.x > maxX) maxX = tile.x;
+        if (tile.y < minY) minY = tile.y;
+        if (tile.y > maxY) maxY = tile.y;
+
+        allOffsets.forEach(([ox, oy]) => {
+          const nextKey = `${tile.x + ox}_${tile.y + oy}`;
+          if (!hideTileKeys.has(nextKey) || visited.has(nextKey)) return;
+          visited.add(nextKey);
+          queue.push(nextKey);
+        });
+      }
+
+      const widthTiles = Math.max(1, Math.round((maxX - minX) / 20) + 1);
+      const heightTiles = Math.max(1, Math.round((maxY - minY) / 20) + 1);
+      const bboxAreaTiles = widthTiles * heightTiles;
+      const density = keys.length / Math.max(1, bboxAreaTiles);
+      clusters.push({ keys, minX, maxX, minY, maxY, density });
+    });
+
+    const primaryAirportClusters = new Set<number>();
+    clusters.forEach((cluster, index) => {
+      const isPrimaryAirport =
+        (cluster.keys.length >= 24 && cluster.density >= 0.22) ||
+        (cluster.keys.length >= 12 && cluster.density >= 0.38) ||
+        (cluster.keys.length >= 6 && cluster.density >= 0.62);
+      if (isPrimaryAirport) primaryAirportClusters.add(index);
+    });
+
+    const bboxGap = (a: { minX: number; maxX: number; minY: number; maxY: number }, b: { minX: number; maxX: number; minY: number; maxY: number }): number => {
+      const dx = Math.max(0, Math.max(a.minX - b.maxX, b.minX - a.maxX));
+      const dy = Math.max(0, Math.max(a.minY - b.maxY, b.minY - a.maxY));
+      return Math.hypot(dx, dy);
+    };
+
+    const localTileMetrics = (x: number, y: number): { cardinalCount: number; ringCount: number } => {
+      let cardinalCount = 0;
+      cardinalOffsets.forEach(([ox, oy]) => {
+        if (hideTileKeys.has(`${x + ox}_${y + oy}`)) cardinalCount += 1;
+      });
+
+      let ringCount = 0;
+      for (let dx = -40; dx <= 40; dx += 20) {
+        for (let dy = -40; dy <= 40; dy += 20) {
+          if (dx === 0 && dy === 0) continue;
+          if (hideTileKeys.has(`${x + dx}_${y + dy}`)) ringCount += 1;
+        }
+      }
+      return { cardinalCount, ringCount };
+    };
+
+    const fallbackAirportKeys = new Set<string>();
+    const seedKeys: string[] = [];
+    hideByKey.forEach(({ x, y }, key) => {
+      const { cardinalCount, ringCount } = localTileMetrics(x, y);
+      // Strong local density indicates airport/apron pavement.
+      if (ringCount >= 6 && cardinalCount >= 1) {
+        fallbackAirportKeys.add(key);
+        seedKeys.push(key);
+      }
+    });
+
+    // Expand from dense seeds so connected runway/taxi strips inherit airport classification.
+    const queue = [...seedKeys];
+    while (queue.length > 0) {
+      const key = queue.pop()!;
+      const tile = hideByKey.get(key);
+      if (!tile) continue;
+
+      allOffsets.forEach(([ox, oy]) => {
+        const nextKey = `${tile.x + ox}_${tile.y + oy}`;
+        if (!hideTileKeys.has(nextKey) || fallbackAirportKeys.has(nextKey)) return;
+        const nextTile = hideByKey.get(nextKey);
+        if (!nextTile) return;
+
+        const { cardinalCount, ringCount } = localTileMetrics(nextTile.x, nextTile.y);
+        const isConnectedAirportStrip = (ringCount >= 4 && cardinalCount >= 1) || cardinalCount >= 2;
+        if (!isConnectedAirportStrip) return;
+
+        fallbackAirportKeys.add(nextKey);
+        queue.push(nextKey);
+      });
+    }
+
+    clusters.forEach((cluster, index) => {
+      let isAirportSurface = primaryAirportClusters.has(index);
+      if (!isAirportSurface && cluster.keys.length >= 3 && primaryAirportClusters.size > 0) {
+        for (const primaryIndex of primaryAirportClusters) {
+          const primary = clusters[primaryIndex];
+          if (bboxGap(cluster, primary) <= 240) {
+            isAirportSurface = true;
+            break;
+          }
+        }
+      }
+
+      cluster.keys.forEach((key) => {
+        if (isAirportSurface) {
+          clusterByKey.set(key, { isAirportSurface: true });
+          return;
+        }
+
+        if (fallbackAirportKeys.has(key)) {
+          clusterByKey.set(key, { isAirportSurface: true });
+          return;
+        }
+
+        clusterByKey.set(key, { isAirportSurface: false });
+      });
+    });
+
+    // One additional relaxed expansion pass helps reconnect sparse taxi strips
+    // that are directly attached to known airport surfaces.
+    const airportSurfaceKeys = new Set<string>();
+    clusterByKey.forEach((value, key) => {
+      if (value.isAirportSurface) airportSurfaceKeys.add(key);
+    });
+
+    const expansionQueue = [...airportSurfaceKeys];
+    while (expansionQueue.length > 0) {
+      const key = expansionQueue.pop()!;
+      const tile = hideByKey.get(key);
+      if (!tile) continue;
+
+      allOffsets.forEach(([ox, oy]) => {
+        const nextKey = `${tile.x + ox}_${tile.y + oy}`;
+        if (!hideTileKeys.has(nextKey) || airportSurfaceKeys.has(nextKey)) return;
+        const nextTile = hideByKey.get(nextKey);
+        if (!nextTile) return;
+
+        const n = hideTileKeys.has(`${nextTile.x}_${nextTile.y + 20}`);
+        const s = hideTileKeys.has(`${nextTile.x}_${nextTile.y - 20}`);
+        const e = hideTileKeys.has(`${nextTile.x + 20}_${nextTile.y}`);
+        const w = hideTileKeys.has(`${nextTile.x - 20}_${nextTile.y}`);
+        const cardinalCount = Number(n) + Number(s) + Number(e) + Number(w);
+
+        let ringCount = 0;
+        for (let dx = -40; dx <= 40; dx += 20) {
+          for (let dy = -40; dy <= 40; dy += 20) {
+            if (dx === 0 && dy === 0) continue;
+            if (hideTileKeys.has(`${nextTile.x + dx}_${nextTile.y + dy}`)) ringCount += 1;
+          }
+        }
+
+        const axisLinked = (n && s) || (e && w);
+        // Relaxed threshold to capture final sparse taxi strips:
+        // any tile axis-aligned, or with 2+ ring neighbours and at least 1 cardinal.
+        const continuation = axisLinked || (ringCount >= 2 && cardinalCount >= 1) || cardinalCount >= 2;
+        if (!continuation) return;
+
+        airportSurfaceKeys.add(nextKey);
+        expansionQueue.push(nextKey);
+      });
+    }
+
+    const isAirportHideTile = (road: Road): boolean => {
+      const cx = road.posX ? road.posX : (road.beg1X + road.end2X) / 2;
+      const cy = road.posY ? road.posY : (road.beg1Y + road.end2Y) / 2;
+      const key = `${snap(cx)}_${snap(cy)}`;
+      return airportSurfaceKeys.has(key);
+    };
+
+    const isPathHideTile = (road: Road): boolean => {
+      // Keep airport/apron/taxi hide tiles gray first; only clearly path-like
+      // non-airport tiles are rendered as brown stitched paths.
+      const cx = road.posX ? road.posX : (road.beg1X + road.end2X) / 2;
+      const cy = road.posY ? road.posY : (road.beg1Y + road.end2Y) / 2;
+      const sx = snap(cx);
+      const sy = snap(cy);
+      const key = `${sx}_${sy}`;
+      if (clusterByKey.get(key)?.isAirportSurface ?? false) return false;
+
+      const n = hideTileKeys.has(`${sx}_${sy + 20}`);
+      const s = hideTileKeys.has(`${sx}_${sy - 20}`);
+      const e = hideTileKeys.has(`${sx + 20}_${sy}`);
+      const w = hideTileKeys.has(`${sx - 20}_${sy}`);
+      const cardinalCount = Number(n) + Number(s) + Number(e) + Number(w);
+
+      let ringCount = 0;
+      for (let dx = -40; dx <= 40; dx += 20) {
+        for (let dy = -40; dy <= 40; dy += 20) {
+          if (dx === 0 && dy === 0) continue;
+          if (hideTileKeys.has(`${sx + dx}_${sy + dy}`)) ringCount += 1;
+        }
+      }
+
+      const width = Number(road.width) || 0;
+      const length = Number(road.length) || 0;
+      const maxDim = Math.max(width, length);
+      const minDim = Math.max(0.001, Math.min(width, length));
+      const aspect = maxDim / minDim;
+
+      // If local neighborhood is even moderately dense, treat as airport/taxi vicinity.
+      const airportVicinity = ringCount >= 7 || (ringCount >= 5 && cardinalCount >= 2);
+      if (airportVicinity) return false;
+
+      // Keep path rendering conservative to avoid runway/taxi false positives.
+      const geometryPathLike = maxDim <= 34 && aspect >= 2.8 && ringCount <= 4 && cardinalCount <= 2;
+      const sparseLinear = cardinalCount <= 1 && ringCount <= 3;
+      const allowNonAirportPathHide = false;
+      if (!allowNonAirportPathHide) return false;
+      return geometryPathLike || sparseLinear;
+    };
+
     airportRoads.forEach(road => {
+      const airportHide = isAirportHideTile(road);
+      if (!airportHide) {
+        if (isPathHideTile(road)) {
+          pathHidePoints.push(hidePathPoint(road, scale));
+        }
+        return;
+      }
+
+      if (isPathHideTile(road)) {
+        pathHidePoints.push(hidePathPoint(road, scale));
+        return;
+      }
+
       const latlngs = rotatedRoadRect(road, scale);
+      const hideStyle = hideSurfaceStyle(road);
       L.polygon(latlngs, {
-        fillColor:   '#D3D3D3',
+        fillColor:   hideStyle.fillColor,
         fillOpacity: 1,
-        color:       '#a5adb5',
-        weight:      0.45,
-        stroke:      true,
-        opacity:     0.35,
+        color:       hideStyle.lineColor,
+        weight:      0,
+        stroke:      false,
+        opacity:     1,
         interactive: false,
         pane:        'athena-road',
         renderer:    canvas,
@@ -2155,7 +2435,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       L.polyline(segments, {
         color:       '#222222',
         weight:      weight + 2,
-        opacity:     0.7,
+        opacity:     1,
         lineCap:     'butt',
         interactive: false,
         renderer:    canvas,
@@ -2167,18 +2447,32 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       L.polyline(segments, {
         color,
         weight,
-        opacity:     0.85,
+        opacity:     1,
         lineCap:     'butt',
         interactive: false,
         renderer:    canvas,
       }).addTo(roadLayerRef.current);
     });
 
+    // Pass 4: stitch path-like hide tiles into connected polylines.
+    const stitchedHidePaths = buildHidePathPolylines(pathHidePoints, scale);
+    if (stitchedHidePaths.length > 0) {
+      L.polyline(stitchedHidePaths, {
+        color: '#8B6B4A',
+        weight: 3.0,
+        opacity: 1,
+        lineCap: 'round',
+        lineJoin: 'round',
+        interactive: false,
+        renderer: canvas,
+      }).addTo(roadLayerRef.current);
+    }
+
     // Airport surfaces were rendered in Pass 1 so taxi/road lines remain visible.
     staticCacheRef.current.roads = true;
   }, [roads, worldSize]);
 
-  // â”€â”€ Location labels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Location labels 
   useEffect(() => {
     if (staticCacheRef.current.locations) return; // already rendered for this world
     locationLayerRef.current.clearLayers();
@@ -2211,11 +2505,14 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     staticCacheRef.current.locations = true;
   }, [locations, worldSize, locationMap]);
 
-  // ── Structures as vector geometry (road-like visual quality) ───────────────────────────
+  //  Structures as vector geometry (road-like visual quality) 
+  // Rendered in batches via requestIdleCallback/setTimeout to avoid freezing the browser
+  // on large maps (Altis: 40K+ structures after server-side limit).
   useEffect(() => {
     if (staticCacheRef.current.structures) return; // already rendered for this world
     structureLayerRef.current.clearLayers();
     if (structures.length === 0) return;
+    let cancelled = false;
     const scale = 100 / worldSize;
     const canvas = structureCanvasRef.current ?? undefined;
     const polePoints = structures
@@ -2258,9 +2555,16 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       return span >= 3 ? span : null;
     };
 
-    structures.forEach(s => {
-      if (s.posX === 0 && s.posY === 0) return;
-      if (s.width <= 0 || s.length <= 0) return;
+    // Render in chunks of 2000 to keep the main thread responsive.
+    const CHUNK = 2000;
+    let idx = 0;
+    const renderChunk = () => {
+      if (cancelled) return;
+      const end = Math.min(idx + CHUNK, structures.length);
+      for (; idx < end; idx++) {
+        const s = structures[idx];
+      if (s.posX === 0 && s.posY === 0) continue;
+      if (s.width <= 0 || s.length <= 0) continue;
 
       const minDim = Math.min(s.width, s.length);
       const maxDim = Math.max(s.width, s.length);
@@ -2268,7 +2572,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       const area = s.width * s.length;
 
       // Skip tiny artifacts/noise.
-      if (area < 0.8) return;
+      if (area < 0.8) continue;
 
       // Restrict line rendering to truly linear assets to avoid pole/prop overshoot.
       const isLinearByShape = minDim < 0.8 && aspect >= 8.0 && maxDim >= 2.5;
@@ -2302,7 +2606,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
           {
             color: '#6f7b87',
             weight: 0.9,
-            opacity: 0.88,
+            opacity: 1,
             lineCap: 'butt',
             lineJoin: 'miter',
             interactive: false,
@@ -2310,27 +2614,35 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
             renderer: canvas,
           }
         ).addTo(structureLayerRef.current);
-        return;
+        continue;
       }
 
-      const corners = rotatedStructureRect(s, scale);
+      const orientation = structureOrientationPolicy(s);
+      const corners = rotatedStructureRect(s, scale, orientation.dirOffsetDeg, orientation.swapAxes);
       const isBuilding = area >= 40;
       L.polygon(corners, {
         color: '#5b6b7d',
         weight: isBuilding ? 1.0 : 0.85,
-        opacity: 0.92,
+        opacity: 1,
         fill: isBuilding,
         fillColor: '#78889a',
-        fillOpacity: 0.55,
+        fillOpacity: 1,
         interactive: false,
         pane: 'athena-structure',
         renderer: canvas,
       }).addTo(structureLayerRef.current);
-    });
-    staticCacheRef.current.structures = true;
+      }
+      if (idx < structures.length) {
+        setTimeout(renderChunk, 0);
+      } else {
+        staticCacheRef.current.structures = true;
+      }
+    };
+    renderChunk();
+    return () => { cancelled = true; };
   }, [structures, worldSize]);
 
-  // â”€â”€ Group waypoints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Group waypoints 
   useEffect(() => {
     groupLayerRef.current.clearLayers();
     waypointLayerRef.current.clearLayers();
@@ -2351,7 +2663,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
       const groupCount = members.length;
       const groupType = resolveGroupType(members, vehicles, vehicleMap);
 
-      // ── Waypoint line + endpoint ── (only for explicit orders, not formation positions)
+      //  Waypoint line + endpoint  (only for explicit orders, not formation positions)
       if (grp.wpX !== 0 || grp.wpY !== 0) {
         const wpLL: [number, number] = [grp.wpY * scale, grp.wpX * scale];
         const wpType = grp.wpType || 'MOVE';
@@ -2359,7 +2671,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
         const wpLabel = wpType.toUpperCase();
         // Dashed line from group to waypoint
         L.polyline([ll, wpLL], {
-          color, weight: 2, dashArray: '6,4', opacity: 0.85, pane: 'athena-waypoint', interactive: false,
+          color, weight: 2, dashArray: '6,4', opacity: 1, pane: 'athena-waypoint', interactive: false,
         }).addTo(waypointLayerRef.current);
         // Endpoint circle + type label
         L.marker(wpLL, {
@@ -2406,372 +2718,7 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     });
   }, [groups, units, vehicles, worldSize, vehicleMap, recentShooterIds]);
 
-  // ── Active laser designations ─────────────────────────────────────────────────────
-  useEffect(() => {
-    lazeLayerRef.current.clearLayers();
-    if (lazes.length === 0) return;
-
-    const scale = 100 / worldSize;
-    lazes.forEach(laze => {
-      if (!Number.isFinite(laze.posX) || !Number.isFinite(laze.posY)) return;
-      const ll: [number, number] = [laze.posY * scale, laze.posX * scale];
-      const label = escapeHtml(lazeLabel(units[laze.unitId]));
-
-      L.marker(ll, {
-        pane: 'athena-laze',
-        interactive: false,
-        icon: L.divIcon({
-          className: '',
-          iconSize: [0, 0],
-          iconAnchor: [0, 0],
-          html: `<div style="position:relative;transform:translate(-50%,-50%);pointer-events:none;">`
-            + `<div style="position:absolute;left:-14px;top:-14px;width:28px;height:28px;border:2px solid rgba(15,15,20,0.95);border-radius:50%;box-shadow:0 0 0 1px rgba(255,255,255,0.8),0 0 10px rgba(0,0,0,0.55);"></div>`
-            + `<div style="position:absolute;left:-11px;top:-11px;width:22px;height:22px;border:2px solid rgba(255,96,96,0.98);border-radius:50%;box-shadow:0 0 10px rgba(255,72,72,0.85), inset 0 0 0 1px rgba(255,255,255,0.5);"></div>`
-            + `<div style="position:absolute;left:-1px;top:-13px;width:2px;height:8px;background:rgba(255,96,96,1);"></div>`
-            + `<div style="position:absolute;left:-1px;top:5px;width:2px;height:8px;background:rgba(255,96,96,1);"></div>`
-            + `<div style="position:absolute;left:-13px;top:-1px;width:8px;height:2px;background:rgba(255,96,96,1);"></div>`
-            + `<div style="position:absolute;left:5px;top:-1px;width:8px;height:2px;background:rgba(255,96,96,1);"></div>`
-            + `<div style="position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:#fff;border:1px solid rgba(20,20,30,0.85);box-shadow:0 0 6px rgba(255,96,96,0.9);"></div>`
-            + `<div style="position:absolute;left:20px;top:-11px;white-space:nowrap;font-size:10px;font-weight:700;color:#ffd1d1;padding:1px 5px;border-radius:4px;background:rgba(20,20,25,0.72);border:1px solid rgba(255,170,170,0.7);text-shadow:none;">${label}</div>`
-            + `</div>`,
-        }),
-      }).addTo(lazeLayerRef.current);
-    });
-  }, [lazes, units, worldSize]);
-
-  // ── Simulated projectile tracking (prediction-only) ──────────────────────────────
-  useEffect(() => {
-    projectileLayerRef.current.clearLayers();
-    if (firedEvents.length === 0) {
-      onProjectileDebugChange?.([]);
-      return;
-    }
-
-    const scale = 100 / worldSize;
-    const now = clockMs;
-    const activeKeys = new Set<string>();
-    const debugEntries: ProjectileDebugEntry[] = [];
-
-    // Deduplicate repeated events in the rolling fired queue
-    const dedup = new Map<string, FiredEvent>();
-    firedEvents.forEach(ev => {
-      const key = `${ev.at}|${ev.unitId}|${ev.vehicleId}|${ev.weapon}|${ev.ammo}|${ev.projectile}`;
-      if (!dedup.has(key)) dedup.set(key, ev);
-    });
-
-    // Build lookup of the most recent actual impact per shooter/weapon combination.
-    // Key strategy is intentionally tolerant because Arma can report different unit IDs
-    // for the same vehicle-fired shot (e.g. gunner/commander variants across handlers).
-    const impactLookup = new Map<string, FiredImpactEvent>();
-    for (const imp of firedImpacts) {
-      const keys = [
-        `${imp.unitId}|${imp.vehicleId}|${imp.weapon}|${imp.muzzle}`,
-        `${imp.vehicleId}|${imp.weapon}|${imp.muzzle}`,
-        `${imp.unitId}|${imp.weapon}|${imp.muzzle}`,
-        `${imp.weapon}|${imp.muzzle}`,
-      ];
-      for (const k of keys) {
-        const existing = impactLookup.get(k);
-        if (!existing || Date.parse(imp.at) > Date.parse(existing.at)) {
-          impactLookup.set(k, imp);
-        }
-      }
-    }
-
-    dedup.forEach((ev, key) => {
-      const profile = getProjectileProfile(ev);
-      if (!profile) return;
-
-      const terminalUntil = projectileTerminalRef.current.get(key);
-      if (terminalUntil !== undefined && terminalUntil > now) return;
-      if (terminalUntil !== undefined && terminalUntil <= now) {
-        projectileTerminalRef.current.delete(key);
-      }
-
-      const firedAt = Date.parse(ev.at);
-      if (!Number.isFinite(firedAt)) return;
-
-      const unit = units[ev.unitId];
-      const vehicleByVehicleId = ev.vehicleId ? vehicles[ev.vehicleId] : undefined;
-      const vehicleByUnitLink = unit?.vehicleId ? vehicles[unit.vehicleId] : undefined;
-      // Some vehicle-fired events can report vehicle netId in unitId; support that shape too.
-      const vehicleByUnitId = vehicles[ev.unitId];
-      const vehicle = vehicleByVehicleId ?? vehicleByUnitLink ?? vehicleByUnitId;
-
-      const srcX = vehicle?.posX ?? unit?.posX;
-      const srcY = vehicle?.posY ?? unit?.posY;
-      const eventDir = typeof ev.fireDir === 'number' && Number.isFinite(ev.fireDir) ? normDeg(ev.fireDir) : undefined;
-      let dirDeg = normDeg(eventDir ?? vehicle?.dir ?? unit?.dir ?? 0);
-
-      // If telemetry contains a concrete target point and heading points away from it,
-      // flip heading by 180° for this event (some platforms report inverted weapon vectors).
-      if (typeof ev.targetX === 'number' && Number.isFinite(ev.targetX) && typeof ev.targetY === 'number' && Number.isFinite(ev.targetY)) {
-        const toTargetX = ev.targetX - srcX;
-        const toTargetY = ev.targetY - srcY;
-        const toTargetLen = Math.hypot(toTargetX, toTargetY);
-        if (toTargetLen > 1) {
-          const targetBearing = normDeg((Math.atan2(toTargetX, toTargetY) * 180) / Math.PI);
-          if (shortestAngleDiff(dirDeg, targetBearing) > 90) {
-            dirDeg = normDeg(dirDeg + 180);
-          }
-        }
-      }
-
-      if (profile.headingOffsetDeg) {
-        dirDeg = normDeg(dirDeg + profile.headingOffsetDeg);
-      }
-      if (!Number.isFinite(srcX) || !Number.isFinite(srcY)) return;
-
-      let launch = projectileLaunchRef.current.get(key);
-      if (!launch) {
-        launch = { x: srcX, y: srcY, dir: dirDeg };
-        projectileLaunchRef.current.set(key, launch);
-      }
-
-      const shooterSide = unit?.side ?? 'UNKNOWN';
-      let target: TargetEstimate | null = null;
-      let lockMode: 'LAZE' | 'UNIT' | 'FREE' = profile.requiresLock ? 'UNIT' : 'FREE';
-      if (profile.requiresLock) {
-        const prevLockMode = projectileLockModeRef.current.get(key);
-        const lastEtaSec = projectileLastEtaRef.current.get(key);
-        if (profile.preferLiveLaze && prevLockMode === 'LAZE' && lazes.length === 0 && lastEtaSec !== undefined && lastEtaSec <= 3) {
-          projectileTerminalRef.current.set(key, now + 5000);
-          projectileLaunchRef.current.delete(key);
-          projectileLockRef.current.delete(key);
-          projectileLockModeRef.current.delete(key);
-          projectileLockSwitchAtRef.current.delete(key);
-          projectileLastEtaRef.current.delete(key);
-          return;
-        }
-
-        let lock: GuidedLock | null = projectileLockRef.current.get(key) ?? null;
-        if (!lock) {
-          lock = acquireGuidedLock(ev, launch.x, launch.y, launch.dir, shooterSide, units, lazes, profile);
-          if (lock) projectileLockRef.current.set(key, lock);
-        }
-
-        if (profile.preferLiveLaze && lock?.kind === 'unit' && lazes.length > 0) {
-          const preferredLazeUnitId = findNearestLazeUnitId(launch.x, launch.y, launch.dir, ev.unitId, lazes, profile);
-          if (preferredLazeUnitId) {
-            lock = { kind: 'laze', unitId: preferredLazeUnitId };
-            projectileLockRef.current.set(key, lock);
-          }
-        }
-
-        if (lock) {
-          lockMode = lock.kind === 'laze' ? 'LAZE' : 'UNIT';
-          target = resolveGuidedLockTarget(lock, units, lazes, worldSize);
-          if (!target) {
-            // If the original lock vanished, try to reacquire while preserving lock type semantics.
-            let reacquired: GuidedLock | null = null;
-            if (lock.kind === 'laze') {
-              if (typeof ev.targetX === 'number' && Number.isFinite(ev.targetX) && typeof ev.targetY === 'number' && Number.isFinite(ev.targetY)) {
-                const byTargetPoint = findNearestLazeUnitIdByTargetPoint(ev.targetX, ev.targetY, lazes);
-                if (byTargetPoint) {
-                  reacquired = { kind: 'laze', unitId: byTargetPoint };
-                }
-              }
-              if (!reacquired) {
-                const lazeUnitId = findNearestLazeUnitId(launch.x, launch.y, launch.dir, ev.unitId, lazes, profile);
-                if (lazeUnitId) {
-                  reacquired = { kind: 'laze', unitId: lazeUnitId };
-                }
-              }
-            } else {
-              reacquired = acquireGuidedLock(ev, launch.x, launch.y, launch.dir, shooterSide, units, lazes, profile);
-            }
-
-            if (reacquired) {
-              projectileLockRef.current.set(key, reacquired);
-              lockMode = reacquired.kind === 'laze' ? 'LAZE' : 'UNIT';
-              target = resolveGuidedLockTarget(reacquired, units, lazes, worldSize);
-            }
-          }
-        }
-
-        if (!target) {
-          return;
-        }
-      } else {
-        const grp = unit?.groupId ? groups[unit.groupId] : undefined;
-        target = targetFromFiredEvent(ev)
-          ?? targetFromLazes(launch.x, launch.y, launch.dir, ev.unitId, lazes, worldSize, profile)
-          ?? estimateTarget(launch.x, launch.y, launch.dir, shooterSide, grp, units, worldSize, profile);
-      }
-
-      let dstX = target.x;
-      let dstY = target.y;
-
-      // For unguided weapons, use actual impact coordinates once the shell has landed.
-      // The SQF tracker sends fired_impact ≈0.1 s after impact with the last-known position.
-      // Also accept data from a previous shot of the same fire mission (same unit+weapon aimed
-      // in the same direction) to correct the predicted range before the current shell lands.
-      if (!profile.requiresLock) {
-        const impactKeys = [
-          `${ev.unitId}|${ev.vehicleId}|${ev.weapon}|${ev.muzzle}`,
-          `${ev.vehicleId}|${ev.weapon}|${ev.muzzle}`,
-          `${ev.unitId}|${ev.weapon}|${ev.muzzle}`,
-          `${ev.weapon}|${ev.muzzle}`,
-        ];
-        const impact = impactKeys.map(k => impactLookup.get(k)).find((v): v is FiredImpactEvent => !!v);
-        if (impact) {
-          const impactReceivedAt = Date.parse(impact.at);
-          const impactAge = now - impactReceivedAt;
-          // Current shot: impact arrived after firing with wall-clock delta ≈ TOF
-          const isCurrentShot = impactReceivedAt > firedAt &&
-              Math.abs((impactReceivedAt - firedAt) - impact.timeOfFlight * 1000) < 10_000;
-          // Previous shot, same fire mission: recent (<10 min) and aimed in the same direction (<25°)
-          const toImpactX = impact.impactX - launch.x;
-          const toImpactY = impact.impactY - launch.y;
-          const impactBearing = normDeg((Math.atan2(toImpactX, toImpactY) * 180) / Math.PI);
-          const isPrevShot = !isCurrentShot && impactAge < 600_000 &&
-              shortestAngleDiff(dirDeg, impactBearing) < 25;
-          if (isCurrentShot || isPrevShot) {
-            dstX = impact.impactX;
-            dstY = impact.impactY;
-          }
-        }
-      }
-
-      if (!Number.isFinite(dstX) || !Number.isFinite(dstY)) return;
-
-      const distance = Math.hypot(dstX - launch.x, dstY - launch.y);
-      if (distance < 5) return;
-
-      const launchAt = firedAt + profile.launchDelayMs;
-      if (now < launchAt) return;
-
-      // The ballistic model gives a more accurate ETA for artillery/rockets whose
-      // time-of-flight is non-linear with range (high arc at short range, flat at long).
-      // Fallback to fixed-speed formula for non-ballistic profiles (missiles, etc.).
-      // For unguided weapons, prefer the actual TOF from the fired_impact report.
-      let etaMs: number;
-      if (!profile.requiresLock) {
-        const impactKeys = [
-          `${ev.unitId}|${ev.vehicleId}|${ev.weapon}|${ev.muzzle}`,
-          `${ev.vehicleId}|${ev.weapon}|${ev.muzzle}`,
-          `${ev.unitId}|${ev.weapon}|${ev.muzzle}`,
-          `${ev.weapon}|${ev.muzzle}`,
-        ];
-        const impact = impactKeys.map(k => impactLookup.get(k)).find((v): v is FiredImpactEvent => !!v);
-        if (impact) {
-          const impactReceivedAt = Date.parse(impact.at);
-          const impactAge = now - impactReceivedAt;
-          const isCurrentShot = impactReceivedAt > firedAt &&
-              Math.abs((impactReceivedAt - firedAt) - impact.timeOfFlight * 1000) < 10_000;
-          const toImpactX = impact.impactX - launch.x;
-          const toImpactY = impact.impactY - launch.y;
-          const impactBearing = normDeg((Math.atan2(toImpactX, toImpactY) * 180) / Math.PI);
-          const isPrevShot = !isCurrentShot && impactAge < 600_000 &&
-              shortestAngleDiff(dirDeg, impactBearing) < 25;
-          if (isCurrentShot || isPrevShot) {
-            etaMs = impact.timeOfFlight * 1000;
-          } else {
-            etaMs = (profile.useBallistics && profile.ballA && profile.ballB)
-              ? profile.ballA * Math.pow(Math.max(distance, 1), profile.ballB) * 1000
-              : (distance / Math.max(profile.speedMps, 1)) * 1000;
-          }
-        } else {
-          etaMs = (profile.useBallistics && profile.ballA && profile.ballB)
-            ? profile.ballA * Math.pow(Math.max(distance, 1), profile.ballB) * 1000
-            : (distance / Math.max(profile.speedMps, 1)) * 1000;
-        }
-      } else {
-        etaMs = (profile.useBallistics && profile.ballA && profile.ballB)
-          ? profile.ballA * Math.pow(Math.max(distance, 1), profile.ballB) * 1000
-          : (distance / Math.max(profile.speedMps, 1)) * 1000;
-      }
-      const impactAt = launchAt + etaMs;
-      const expiresAt = impactAt + profile.lingerAfterImpactMs;
-      if (now >= expiresAt) return;
-
-      const progress = clamp((now - launchAt) / etaMs, 0, 1);
-      const worldPts = buildPredictedPath(launch.x, launch.y, dstX, dstY, profile.lateralFactor, progress);
-      const mapPts = worldPts.map(([x, y]) => [y * scale, x * scale] as [number, number]);
-      if (mapPts.length < 2) return;
-      activeKeys.add(key);
-
-      L.polyline(mapPts, {
-        color: profile.color,
-        weight: 2.2,
-        opacity: 0.9,
-        dashArray: '6,5',
-        interactive: false,
-        pane: 'athena-projectile',
-      }).addTo(projectileLayerRef.current);
-
-      const cur = mapPts[mapPts.length - 1];
-  const etaSec = Math.max(0, Math.ceil((impactAt - now) / 1000));
-      projectileLastEtaRef.current.set(key, etaSec);
-      const sourceTag = projectileSourceTag(target);
-      const shooterName = unit ? (unit.playerName?.trim() || unit.name || unit.id) : ev.unitId;
-      const weaponLabel = ev.weapon?.trim() || ev.projectile?.trim() || ev.ammo?.trim() || 'Unknown';
-      debugEntries.push({
-        id: key.slice(-8),
-        trackKey: key,
-        shooter: shooterName,
-        weapon: weaponLabel,
-        lock: lockMode,
-        source: sourceTag,
-        etaSec,
-        target: `${Math.round(dstX)},${Math.round(dstY)}`,
-        lockSwitched: false,
-      });
-
-      L.marker(cur, {
-        pane: 'athena-projectile',
-        interactive: false,
-        icon: L.divIcon({
-          className: '',
-          iconSize: [0, 0],
-          iconAnchor: [0, 0],
-          html: `<div style="width:8px;height:8px;border-radius:50%;background:${profile.color};box-shadow:0 0 6px ${profile.color};"></div>` +
-            `<div style="margin-top:2px;white-space:nowrap;font-size:9px;font-weight:700;color:${profile.color};text-shadow:-1px 0 #000,1px 0 #000,0 -1px #000,0 1px #000;">${sourceTag} ETA ${etaSec}s</div>`,
-        }),
-      }).addTo(projectileLayerRef.current);
-    });
-
-    // Drop cached launch points for projectiles that are no longer active.
-    for (const key of projectileLaunchRef.current.keys()) {
-      if (!activeKeys.has(key)) projectileLaunchRef.current.delete(key);
-    }
-    for (const key of projectileLockRef.current.keys()) {
-      if (!activeKeys.has(key)) projectileLockRef.current.delete(key);
-    }
-    for (const key of projectileLastEtaRef.current.keys()) {
-      if (!activeKeys.has(key)) projectileLastEtaRef.current.delete(key);
-    }
-    for (const key of projectileTerminalRef.current.keys()) {
-      if (projectileTerminalRef.current.get(key)! <= now) projectileTerminalRef.current.delete(key);
-    }
-    for (const key of projectileLockModeRef.current.keys()) {
-      if (!activeKeys.has(key)) projectileLockModeRef.current.delete(key);
-    }
-    for (const key of projectileLockSwitchAtRef.current.keys()) {
-      if (!activeKeys.has(key)) projectileLockSwitchAtRef.current.delete(key);
-    }
-
-    const switchFlashMs = 2500;
-    const debugWithSwitch = debugEntries.map(entry => {
-      const prev = projectileLockModeRef.current.get(entry.trackKey);
-      const current = entry.lock;
-      if (prev && prev !== current) {
-        projectileLockSwitchAtRef.current.set(entry.trackKey, now);
-      }
-      projectileLockModeRef.current.set(entry.trackKey, current);
-
-      const switchedAt = projectileLockSwitchAtRef.current.get(entry.trackKey);
-      const lockSwitched = switchedAt !== undefined && now - switchedAt <= switchFlashMs;
-      return {
-        ...entry,
-        lockSwitched,
-      };
-    });
-
-    onProjectileDebugChange?.(debugWithSwitch.slice(0, 5));
-  }, [firedEvents, firedImpacts, units, vehicles, groups, lazes, worldSize, clockMs, onProjectileDebugChange]);
-
-  // â”€â”€ Vehicle markers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Vehicle markers 
   useEffect(() => {
     vehicleLayerRef.current.clearLayers();
     const scale = 100 / worldSize;
@@ -2779,10 +2726,15 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     // Crew labels visible at display zoom >= 2.5x (internal zoom >= 9.2)
     const showCrew = zoom >= 9.2;
     Object.values(vehicles).forEach(veh => {
-      if (veh.posX === 0 && veh.posY === 0) return;
-      const ll: [number, number] = [veh.posY * scale, veh.posX * scale];
       // Resolve crew from units referencing this vehicle (crew array may be empty in live data)
       const occupants = Object.values(units).filter(u => u.vehicleId === veh.id);
+      const anchor = (veh.posX === 0 && veh.posY === 0)
+        ? occupants.find(u => !(u.posX === 0 && u.posY === 0))
+        : null;
+      const posX = anchor ? anchor.posX : veh.posX;
+      const posY = anchor ? anchor.posY : veh.posY;
+      if (posX === 0 && posY === 0) return;
+      const ll: [number, number] = [posY * scale, posX * scale];
       const crewNames = occupants.map(u => `${u.name} (${u.type})`).join(', ');
       const category = resolveVehicleCategory(veh.class, vehicleMap);
       L.marker(ll, { icon: vehicleIcon(veh, units, category), pane: 'athena-vehicle' })
@@ -2827,21 +2779,23 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
     });
   }, [vehicles, units, worldSize, vehicleMap, mapZoom, recentShooterIds]);
 
-  // â”€â”€ Unit markers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  //  Unit markers 
   useEffect(() => {
     unitLayerRef.current.clearLayers();
     const scale = 100 / worldSize;
     Object.values(units).forEach(unit => {
       const mountedVehicle = unit.vehicleId ? vehicles[unit.vehicleId] : undefined;
-      // Bus/in-game behavior: mounted infantry/pilots are represented by the vehicle icon only.
-      if (mountedVehicle) return;
+      // Keep mounted infantry/pilots hidden only when the vehicle has a valid position.
+      // If vehicle coords are missing, fall back to unit marker so entities don't disappear.
+      const vehicleHasPos = Boolean(mountedVehicle) && !((mountedVehicle?.posX ?? 0) === 0 && (mountedVehicle?.posY ?? 0) === 0);
+      if (vehicleHasPos) return;
       const posX = unit.posX;
       const posY = unit.posY;
       if (posX === 0 && posY === 0) return;
       const ll: [number, number] = [posY * scale, posX * scale];
       const markerIcon = unitIcon(unit);
       L.marker(ll, { icon: markerIcon, pane: 'athena-unit' })
-        .bindTooltip(`<b>${unit.name}</b><br>${unit.side} Â· ${unit.rank}<br>${unit.type}`, { sticky: true })
+        .bindTooltip(`<b>${unit.name}</b><br>${unit.side} · ${unit.rank}<br>${unit.type}`, { sticky: true })
         .addTo(unitLayerRef.current);
 
       if (recentShooterIds.has(unit.id)) {
@@ -2857,15 +2811,23 @@ function LayerManager({ units, vehicles, groups, lazes, firedEvents, firedImpact
   return null;
 }
 
-// â”€â”€ Main map component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//  Main map component 
 
 interface MapProps {
   units:      Record<string, Unit>;
   vehicles:   Record<string, Vehicle>;
   groups:     Record<string, Group>;
-  lazes?:     ActiveLaze[];
-  firedEvents?: FiredEvent[];
-  firedImpacts?: FiredImpactEvent[];
+  relayMarkers?: RelayMarker[];
+  /** Unit ids to draw with the "just fired" pulse (apps with shot telemetry, e.g. AR). */
+  pulseUnitIds?: Set<string>;
+  /**
+   * Extension slot rendered INSIDE the Leaflet map, so children can use
+   * react-leaflet's `useMap()`. AR plugs its laze/projectile layers in here,
+   * using the reserved `athena-laze` / `athena-projectile` panes.
+   */
+  mapExtensions?: ReactNode;
+  /** Extension slot rendered over the map area, outside Leaflet (e.g. AR's Fire Control panel). */
+  overlayExtensions?: ReactNode;
   worldSize?: number;
   world?:     string;
   roads:      Road[];
@@ -2879,14 +2841,40 @@ interface MapProps {
   renderMode?: RenderMode;
   vehicleMap?:  Map<string, string>;
   locationMap?: Map<string, { DrawStyle: string; SizeText: number; Name: string }>;
+  shorelineRefreshToken?: number;
   onRegisterFocus?: (fn: (posX: number, posY: number) => void) => void;
   onRegisterPan?: (fn: (posX: number, posY: number) => void) => void;
+  onUserInteraction?: () => void;
+  storedITgtTargets?: StoredITgtTarget[];
+  firewillITgtTargets?: FirewillITgtTarget[];
+  onStoreCursorITgt?: (target: { x: number; y: number; code: string }) => void;
+  isTouchInput?: boolean;
 }
+
+export type StoredITgtTarget = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  code: string;
+};
+
+export type FirewillITgtTarget = {
+  id: string;
+  name: string;
+  label: string;
+  x: number;
+  y: number;
+  deletedInFirewill: boolean;
+};
+
+/** Stable empty default for `pulseUnitIds` (a new Set per render would re-run marker effects). */
+const NO_PULSE_UNITS: Set<string> = new Set();
 
 const DEFAULT_MAP_CENTER: [number, number] = [50, 50];
 const DEFAULT_MAP_ZOOM = 4;
 
-// ── Vertical zoom slider rendered inside the MapContainer (has access to the Leaflet map) ──
+//  Vertical zoom slider rendered inside the MapContainer (has access to the Leaflet map) 
 function ZoomSliderControl() {
   const map = useMap();
   // Keep zoom focused on useful tactical ranges:
@@ -2965,7 +2953,25 @@ function ZoomSliderControl() {
   );
 }
 
-// ── Focus bridge — lets sidebar pan the map to a world coordinate ──────────
+//  User-interaction bridge  fires callback on manual drag / zoom 
+function UserInteractionBridge({ onInteraction }: { onInteraction: () => void }) {
+  const map = useMap();
+  const callbackRef = useRef(onInteraction);
+  callbackRef.current = onInteraction;
+
+  useEffect(() => {
+    const handler = () => callbackRef.current();
+    map.on('dragstart', handler);
+    map.on('zoomstart', handler);
+    return () => {
+      map.off('dragstart', handler);
+      map.off('zoomstart', handler);
+    };
+  }, [map]);
+  return null;
+}
+
+//  Focus bridge  lets sidebar pan the map to a world coordinate 
 function FocusBridge({
   worldSize,
   onRegisterFocus,
@@ -3007,9 +3013,9 @@ function CursorCoordinateBridge({
 
   useEffect(() => {
     const scale = 100 / worldSize;
-    const onMove = (e: L.LeafletMouseEvent) => {
-      const x = e.latlng.lng / scale;
-      const y = e.latlng.lat / scale;
+    const updateFromLatLng = (latlng: L.LatLng) => {
+      const x = latlng.lng / scale;
+      const y = latlng.lat / scale;
       const clampedX = Math.min(worldSize, Math.max(0, x));
       const clampedY = Math.min(worldSize, Math.max(0, y));
       let z: number | null = null;
@@ -3021,16 +3027,719 @@ function CursorCoordinateBridge({
       onChange({ x: clampedX, y: clampedY, z });
     };
 
+    const onMove = (e: L.LeafletMouseEvent) => {
+      updateFromLatLng(e.latlng);
+    };
+
+    const onClick = (e: L.LeafletMouseEvent) => {
+      updateFromLatLng(e.latlng);
+    };
+
     const onOut = () => onChange(null);
 
     map.on('mousemove', onMove);
+    map.on('click', onClick);
     map.on('mouseout', onOut);
 
     return () => {
       map.off('mousemove', onMove);
+      map.off('click', onClick);
       map.off('mouseout', onOut);
     };
   }, [map, worldSize, elevLookup, onChange]);
+
+  return null;
+}
+
+function ITgtCaptureBridge({
+  cursorCoords,
+  onStoreCursorITgt,
+}: {
+  cursorCoords: { x: number; y: number; z: number | null } | null;
+  onStoreCursorITgt: (target: { x: number; y: number; code: string }) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const storeCurrent = () => {
+      if (!cursorCoords) return;
+      onStoreCursorITgt({ x: cursorCoords.x, y: cursorCoords.y, code: toITgt8(cursorCoords.x, cursorCoords.y) });
+    };
+
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (ev.repeat) return;
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+      if (ev.key.toLowerCase() === 't') {
+        storeCurrent();
+      }
+    };
+
+    const onMouseDown = (e: L.LeafletMouseEvent) => {
+      const button = (e.originalEvent as MouseEvent | undefined)?.button;
+      if (button !== 1) return;
+      e.originalEvent?.preventDefault();
+      storeCurrent();
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    map.on('mousedown', onMouseDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      map.off('mousedown', onMouseDown);
+    };
+  }, [map, cursorCoords, onStoreCursorITgt]);
+
+  return null;
+}
+
+function ITgtMarkerLayer({
+  targets,
+  firewillTargets,
+  worldSize,
+}: {
+  targets: StoredITgtTarget[];
+  firewillTargets: FirewillITgtTarget[];
+  worldSize: number;
+}) {
+  const map = useMap();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    const pane = map.getPane('athena-itgt') ?? map.createPane('athena-itgt');
+    pane.style.zIndex = '590';
+    pane.style.pointerEvents = 'none';
+
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
+    return () => {
+      map.removeLayer(layer);
+      layerRef.current = null;
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    const scale = 100 / worldSize;
+
+    const triangleSize = 42;
+    const iconSize = 48;
+    const iconAnchor: [number, number] = [24, 42];
+
+    targets.forEach(target => {
+      const ll: [number, number] = [target.y * scale, target.x * scale];
+      L.marker(ll, {
+        pane: 'athena-itgt',
+        interactive: false,
+        icon: L.divIcon({
+          className: '',
+          iconSize: [iconSize, iconSize],
+          iconAnchor,
+          html:
+            `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">` +
+            `<svg xmlns="http://www.w3.org/2000/svg" width="${triangleSize}" height="${triangleSize}" viewBox="0 0 20 20" style="display:block;">` +
+            `<polygon points="10,2 18,17 2,17" fill="#133B98" stroke="#B5CEFF" stroke-width="1" />` +
+            `</svg>` +
+            `<div style="font-family:Consolas, 'Lucida Console', monospace;font-size:15px;font-weight:800;color:#4DA3FF;-webkit-text-fill-color:#4DA3FF;white-space:nowrap;` +
+            `letter-spacing:0.2px;text-shadow:-1px 0 0 rgba(0,0,0,0.9),1px 0 0 rgba(0,0,0,0.9),0 -1px 0 rgba(0,0,0,0.9),0 1px 0 rgba(0,0,0,0.9);">${escapeHtml(target.label)}</div>` +
+            `</div>`,
+        }),
+      })
+        .bindTooltip(`<b>${escapeHtml(target.label)}</b><br>${target.code}`, { sticky: true })
+        .addTo(layer);
+    });
+
+    firewillTargets.forEach(target => {
+        if (!Number.isFinite(target.x) || !Number.isFinite(target.y)) return;
+        const label = target.label.trim();
+        const ll: [number, number] = [target.y * scale, target.x * scale];
+        const fill = target.deletedInFirewill ? '#6d2a2a' : '#133B98';
+        const stroke = target.deletedInFirewill ? '#ff9393' : '#B5CEFF';
+        const textColor = target.deletedInFirewill ? '#ff9f9f' : '#4DA3FF';
+        L.marker(ll, {
+          pane: 'athena-itgt',
+          interactive: false,
+          icon: L.divIcon({
+            className: '',
+            iconSize: [iconSize, iconSize],
+            iconAnchor,
+            html:
+              `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">` +
+              `<svg xmlns="http://www.w3.org/2000/svg" width="${triangleSize}" height="${triangleSize}" viewBox="0 0 20 20" style="display:block;">` +
+              `<polygon points="10,2 18,17 2,17" fill="${fill}" stroke="${stroke}" stroke-width="1" />` +
+              `</svg>` +
+              `<div style="font-family:Consolas, 'Lucida Console', monospace;font-size:15px;font-weight:800;color:${textColor};-webkit-text-fill-color:${textColor};white-space:nowrap;` +
+              `letter-spacing:0.2px;text-shadow:-1px 0 0 rgba(0,0,0,0.9),1px 0 0 rgba(0,0,0,0.9),0 -1px 0 rgba(0,0,0,0.9),0 1px 0 rgba(0,0,0,0.9);">${escapeHtml(label)}</div>` +
+              `</div>`,
+          }),
+        })
+          .bindTooltip(`<b>${escapeHtml(label)}</b><br>${target.deletedInFirewill ? 'Deleted in Firewill' : escapeHtml(target.name)}`, { sticky: true })
+          .addTo(layer);
+      });
+  }, [targets, firewillTargets, worldSize]);
+
+  return null;
+}
+
+function relayMarkerLabel(marker: RelayMarker): string {
+  const text = String(marker.text || '').trim();
+  if (text) return text;
+
+  // Area markers should only surface explicit marker text; falling back to
+  // names leaks mission-internal ids such as d_dommtmxe_8 into the UI.
+  if (relayMarkerShape(marker) !== 'icon') return '';
+
+  const name = String(marker.name || '').trim();
+  if (!name) return '';
+
+  const normalized = normalizeRelayMarkerKey(name);
+  // Mission/script-internal marker ids should not surface as user-facing labels.
+  if (
+    normalized.startsWith('xr_')
+    || normalized.startsWith('respawn_')
+    || normalized.startsWith('base_spawn_')
+  ) {
+    return '';
+  }
+
+  return name;
+}
+
+function normalizeRelayMarkerKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '_')
+    .replace(/-/g, '_');
+}
+
+const RELAY_HANDDRAWN_ICON_KEYS = new Set([
+  'dot',
+  'objective',
+  'flag',
+  'ambush',
+  'destroy',
+  'start',
+  'end',
+  'pickup',
+  'join',
+  'warning',
+  'unknown',
+  'arrow',
+]);
+
+function relayMarkerTypeCandidates(marker: RelayMarker): string[] {
+  const out: string[] = [];
+  const push = (v: string) => {
+    const key = normalizeRelayMarkerKey(v);
+    if (!key) return;
+    if (!out.includes(key)) out.push(key);
+  };
+
+  push(marker.type || '');
+  push(marker.name || '');
+  push(marker.text || '');
+  return out;
+}
+
+function baseRelayMarkerTypeKey(marker: RelayMarker): string {
+  const candidates = relayMarkerTypeCandidates(marker);
+  for (const candidate of candidates) {
+    if (RELAY_HANDDRAWN_ICON_KEYS.has(candidate)) return candidate;
+    if (candidate.startsWith('hd_')) {
+      const key = candidate.slice(3);
+      if (RELAY_HANDDRAWN_ICON_KEYS.has(key)) return key;
+    }
+    if (candidate.startsWith('mil_')) {
+      const key = candidate.slice(4);
+      if (RELAY_HANDDRAWN_ICON_KEYS.has(key)) return key;
+    }
+    for (const known of RELAY_HANDDRAWN_ICON_KEYS) {
+      if (candidate.includes(known)) return known;
+    }
+  }
+  return '';
+}
+
+function shouldIgnoreRelayMarker(marker: RelayMarker): boolean {
+  const candidates = relayMarkerTypeCandidates(marker);
+  return candidates.some((candidate) => (
+    candidate === 'aws_laser_target'
+      || candidate === 'red_crystal'
+      || candidate === 'white'
+      || candidate.includes('aws_laser')
+      || candidate.includes('red_crystal')
+  ));
+}
+
+function rawRelayMarkerName(marker: RelayMarker): string {
+  return normalizeRelayMarkerKey(String(marker.name || '').trim());
+}
+
+function rawRelayMarkerText(marker: RelayMarker): string {
+  return normalizeRelayMarkerKey(String(marker.text || '').trim());
+}
+
+function isAoNamedMarker(marker: RelayMarker): boolean {
+  const name = rawRelayMarkerName(marker);
+  const text = rawRelayMarkerText(marker);
+  return (
+    AO_NAME_RX.test(name)
+    || AO_NAME_RX.test(text)
+    || text === 'ao'
+    || /^d_camp(?:_|$)/.test(name)
+    || /^d_dummy(?:_|$)/.test(name)
+    || name.includes('xmission')
+    || text.includes('side_mission')
+    || name.includes('parajump')
+    || text.includes('parajump')
+    || name.includes('parajum')
+    || text.includes('parajum')
+    || name.includes('paradrop')
+    || text.includes('paradrop')
+    || name.includes('radiotower')
+    || text.includes('radiotower')
+  );
+}
+
+function isSpawnMarker(marker: RelayMarker): boolean {
+  const rawName = String(marker.name || '').trim().toLowerCase();
+  const name = normalizeRelayMarkerKey(rawName);
+  const text = rawRelayMarkerText(marker);
+  if (isAoNamedMarker(marker)) return false;
+  return (
+    name.startsWith('d_')
+    || /^d_smm\|\d+\|/.test(rawName)
+    || name === 'd_player_ammobox_pos'
+    || name === 'farp'
+    || name.includes('_farp')
+    || name === 'start'
+    || text === 'start'
+    || name.includes('service')
+    || text.includes('service')
+  );
+}
+
+function relayMarkerIconPath(marker: RelayMarker): string | null {
+  const key = baseRelayMarkerTypeKey(marker);
+  if (!key) return null;
+  return `/icons/handdrawn/${key}.png`;
+}
+
+function isRelayITgtMarker(marker: RelayMarker): boolean {
+  return relayMarkerLabel(marker).toUpperCase().startsWith('TGT_');
+}
+
+function relayMarkerShape(marker: RelayMarker): 'icon' | 'ellipse' | 'rectangle' {
+  const shape = (marker.shape || '').toLowerCase();
+  if (shape.includes('ellipse')) return 'ellipse';
+  if (shape.includes('rect')) return 'rectangle';
+  return 'icon';
+}
+
+function relayMarkerColor(colorName: string): string {
+  const key = (colorName || '').toLowerCase();
+  if (key.includes('blufor') || key.includes('west')) return '#4e9de0';
+  if (key.includes('opfor') || key.includes('east')) return '#d9534f';
+  if (key.includes('independent') || key.includes('guer') || key.includes('resistance')) return '#4ec94e';
+  if (key.includes('civilian') || key.includes('civ')) return '#cfcfcf';
+  if (key.includes('unknown')) return '#b9b9b9';
+  if (key.includes('red')) return '#d9534f';
+  if (key.includes('blue')) return '#4e9de0';
+  if (key.includes('green')) return '#4ec94e';
+  if (key.includes('yellow')) return '#e7cc5b';
+  if (key.includes('orange')) return '#e9974a';
+  if (key.includes('pink')) return '#d783b7';
+  if (key.includes('white')) return '#f2f2f2';
+  if (key.includes('black')) return '#222222';
+  return '#f2f2f2';
+}
+
+function rotatedMarkerRect(centerX: number, centerY: number, sizeX: number, sizeY: number, dirDeg: number): [number, number][] {
+  const halfX = sizeX;
+  const halfY = sizeY;
+  const angle = (dirDeg * Math.PI) / 180;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+
+  return [
+    [-halfX, -halfY],
+    [halfX, -halfY],
+    [halfX, halfY],
+    [-halfX, halfY],
+  ].map(([dx, dy]) => [
+    centerY + (-dx * sin) + (dy * cos),
+    centerX + (dx * cos) + (dy * sin),
+  ]);
+}
+
+function rotatedMarkerEllipse(centerX: number, centerY: number, sizeX: number, sizeY: number, dirDeg: number): [number, number][] {
+  const angle = (dirDeg * Math.PI) / 180;
+  const sin = Math.sin(angle);
+  const cos = Math.cos(angle);
+  const points: [number, number][] = [];
+  for (let i = 0; i < 24; i++) {
+    const t = (i / 24) * Math.PI * 2;
+    const dx = Math.cos(t) * sizeX;
+    const dy = Math.sin(t) * sizeY;
+    points.push([
+      centerY + (-dx * sin) + (dy * cos),
+      centerX + (dx * cos) + (dy * sin),
+    ]);
+  }
+  return points;
+}
+
+function RelayMarkerLayer({
+  relayMarkers,
+  worldSize,
+  showArmaMarkers,
+  showSpawnMarkers,
+}: {
+  relayMarkers: RelayMarker[];
+  worldSize: number;
+  showArmaMarkers: boolean;
+  showSpawnMarkers: boolean;
+}) {
+  const map = useMap();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    const pane = map.getPane('athena-relay-marker') ?? map.createPane('athena-relay-marker');
+    pane.style.zIndex = '605';
+    pane.style.pointerEvents = 'none';
+
+    const layer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
+    return () => {
+      map.removeLayer(layer);
+      layerRef.current = null;
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    layer.clearLayers();
+    if (!Number.isFinite(worldSize) || worldSize <= 0) return;
+
+    const scale = 100 / worldSize;
+
+    relayMarkers.forEach((marker) => {
+      if (!Number.isFinite(marker.posX) || !Number.isFinite(marker.posY)) return;
+      if (isRelayITgtMarker(marker)) return;
+      if (shouldIgnoreRelayMarker(marker)) return;
+      if (isAoDisplayMarker(marker)) return;
+      const spawnMarker = isSpawnMarker(marker);
+      if (spawnMarker) {
+        if (!showSpawnMarkers) return;
+      } else if (!showArmaMarkers) {
+        return;
+      }
+
+      const ll: [number, number] = [marker.posY * scale, marker.posX * scale];
+      const color = relayMarkerColor(marker.color);
+      const alpha = Math.max(0.05, Math.min(1, Number.isFinite(marker.alpha) ? marker.alpha : 1));
+      const dir = Number.isFinite(marker.dir) ? marker.dir : 0;
+      const shape = relayMarkerShape(marker);
+      const iconPath = relayMarkerIconPath(marker);
+
+      if (shape === 'rectangle' && marker.sizeX > 0 && marker.sizeY > 0) {
+        const points = rotatedMarkerRect(marker.posX * scale, marker.posY * scale, marker.sizeX * scale, marker.sizeY * scale, dir);
+        L.polygon(points, {
+          pane: 'athena-relay-marker',
+          interactive: false,
+          color,
+          weight: 1.2,
+          opacity: Math.max(alpha, 0.3),
+          fillColor: color,
+          fillOpacity: Math.max(alpha * 0.25, 0.08),
+        }).addTo(layer);
+      } else if (shape === 'ellipse' && marker.sizeX > 0 && marker.sizeY > 0) {
+        const points = rotatedMarkerEllipse(marker.posX * scale, marker.posY * scale, marker.sizeX * scale, marker.sizeY * scale, dir);
+        L.polygon(points, {
+          pane: 'athena-relay-marker',
+          interactive: false,
+          color,
+          weight: 1.2,
+          opacity: Math.max(alpha, 0.3),
+          fillColor: color,
+          fillOpacity: Math.max(alpha * 0.25, 0.08),
+        }).addTo(layer);
+      } else {
+        if (iconPath) {
+          const sizeScale = Math.max(0.5, Math.min(3, Number.isFinite(marker.sizeX) ? marker.sizeX : 1));
+          const iconPx = Math.round(52 * sizeScale);
+          const iconAnchor = Math.round(iconPx / 2);
+          L.marker(ll, {
+            pane: 'athena-relay-marker',
+            interactive: false,
+            icon: L.divIcon({
+              className: '',
+              iconSize: [iconPx, iconPx],
+              iconAnchor: [iconAnchor, iconAnchor],
+              html:
+                `<div style="width:${iconPx}px;height:${iconPx}px;background:${color};opacity:${alpha};` +
+                `-webkit-mask:url('${iconPath}') center / contain no-repeat;mask:url('${iconPath}') center / contain no-repeat;` +
+                `filter:drop-shadow(0 0 1px rgba(0,0,0,0.85));"></div>`,
+            }),
+          }).addTo(layer);
+        } else {
+          L.circleMarker(ll, {
+            pane: 'athena-relay-marker',
+            interactive: false,
+            radius: 5,
+            color: '#121418',
+            weight: 1,
+            fillColor: color,
+            fillOpacity: alpha,
+          }).addTo(layer);
+        }
+      }
+
+      const label = relayMarkerLabel(marker);
+      if (!label) return;
+
+      L.marker(ll, {
+        pane: 'athena-relay-marker',
+        interactive: false,
+        icon: L.divIcon({
+          className: '',
+          iconSize: [0, 0],
+          iconAnchor: [-6, 12],
+          html: `<div class="map-marker-label" style="color:${color};font-weight:700;white-space:nowrap;">${escapeHtml(label)}</div>`,
+        }),
+      }).addTo(layer);
+    });
+  }, [relayMarkers, showArmaMarkers, showSpawnMarkers, worldSize]);
+
+  return null;
+}
+
+// ─── AO Marker Layer ─────────────────────────────────────────────────────────
+// Detects AO area markers from the relay Markers[] stream and renders them
+// with a distinctive highlighted overlay (yellow border, semi-transparent fill).
+//
+// Detection heuristic:
+//   1. Shape must be RECTANGLE or ELLIPSE (area markers, not icon pins).
+//   2. Both sizeX and sizeY must be > 50 m (filters tiny placeholder markers).
+//   3. Name/text must not start with TGT_ (those are I-TGT, handled separately).
+//   4. If ANY marker with name/text matching an AO keyword exists, show only
+//      those.  Otherwise fall back to showing all qualifying area markers so
+//      missions with non-standard naming still get a useful AO overlay.
+//
+// Common AO naming patterns in A3 missions: "AO", "AO_1", "area_op", "zone",
+// "sector", "areaOp", "missionAO", "tf_ao", etc.
+
+const AO_NAME_RX = /\bao\b|area[_\s]?op|missionao|zone[_\s]?op|sector[_\s]?op|isledefense|isle[_\s]?defense|dommtm(?:xe)?/i;
+
+function isAoAreaMarker(marker: RelayMarker): boolean {
+  const shape = relayMarkerShape(marker);
+  if (shape === 'icon') return false;
+  if (!(Number.isFinite(marker.sizeX) && marker.sizeX > 50 &&
+        Number.isFinite(marker.sizeY) && marker.sizeY > 50)) return false;
+  if (isRelayITgtMarker(marker)) return false;
+  return true;
+}
+
+function isAoDisplayMarker(marker: RelayMarker): boolean {
+  if (relayMarkerShape(marker) === 'icon') return isAoNamedMarker(marker);
+  if (!isAoAreaMarker(marker)) return false;
+  return isAoNamedMarker(marker);
+}
+
+function filterAoMarkers(markers: RelayMarker[]): RelayMarker[] {
+  return markers.filter(isAoDisplayMarker);
+}
+
+function shouldRenderAoLabel(marker: RelayMarker): boolean {
+  const text = String(marker.text || '').trim();
+  if (!text) return false;
+  if (relayMarkerShape(marker) === 'icon') return true;
+  // Domination-style sector numbers like "4" are not useful enough to justify
+  // a dedicated AO overlay label once the area box itself is hidden.
+  return !/^\d+$/.test(text);
+}
+
+function aoMarkerLabelPresentation(marker: RelayMarker, label: string, color: string): {
+  iconAnchor: [number, number];
+  html: string;
+} {
+  const numericIconLabel = relayMarkerShape(marker) === 'icon' && /^\d+$/.test(label.trim());
+  if (numericIconLabel) {
+    return {
+      iconAnchor: [0, 0],
+      html: `<div class="map-marker-label" style="transform:translate(-50%,-52%);color:#F7F4EA;font-weight:900;font-size:15px;white-space:nowrap;text-shadow:0 0 2px #000,0 0 5px #000,1px 1px 0 #000,-1px -1px 0 #000;">${escapeHtml(label)}</div>`,
+    };
+  }
+
+  const labelColor = color.toLowerCase() === '#222222' ? '#F7F4EA' : color;
+  return {
+    iconAnchor: [-6, 12],
+    html: `<div class="map-marker-label" style="color:${labelColor};font-weight:800;font-size:13px;white-space:nowrap;text-shadow:0 0 4px #000,0 0 8px #000;">${escapeHtml(label)}</div>`,
+  };
+}
+
+function isNumericAoIconLabel(marker: RelayMarker, label: string): boolean {
+  return relayMarkerShape(marker) === 'icon' && /^\d+$/.test(label.trim());
+}
+
+function numericAoIconHtml(color: string, alpha: number, iconPx: number, label: string): string {
+  const shellW = iconPx;
+  const shellH = iconPx;
+  const cx = iconPx / 2;
+  const cy = iconPx / 2;
+  const radius = Math.max(10, (iconPx / 2) - 5);
+  const stroke = Math.max(2, Math.round(iconPx * 0.08));
+  const xInset = Math.max(6, Math.round(iconPx * 0.28));
+  const yInset = Math.max(6, Math.round(iconPx * 0.28));
+  const textSize = Math.max(14, Math.round(iconPx * 0.34));
+  const safeLabel = escapeHtml(label.trim().slice(0, 2));
+  const svg =
+    `<svg width="${iconPx}" height="${iconPx}" viewBox="0 0 ${iconPx} ${iconPx}" xmlns="http://www.w3.org/2000/svg">` +
+    `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="${color}" stroke-width="${stroke}" opacity="${alpha}"/>` +
+    `<line x1="${xInset}" y1="${yInset}" x2="${iconPx - xInset}" y2="${iconPx - yInset}" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" opacity="${alpha}"/>` +
+    `<line x1="${iconPx - xInset}" y1="${yInset}" x2="${xInset}" y2="${iconPx - yInset}" stroke="${color}" stroke-width="${stroke}" stroke-linecap="round" opacity="${alpha}"/>` +
+    `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#F7F4EA" font-family="Segoe UI, Arial, sans-serif" font-weight="900" font-size="${textSize}" stroke="#000" stroke-width="2" paint-order="stroke">${safeLabel}</text>` +
+    `</svg>`;
+  return `<div style="position:relative;width:${shellW}px;height:${shellH}px;pointer-events:none;">` +
+    `<div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:${iconPx}px;height:${iconPx}px;filter:drop-shadow(0 0 1px rgba(0,0,0,0.85));">${svg}</div>` +
+    `</div>`;
+}
+
+function AoMarkerLayer({
+  relayMarkers,
+  worldSize,
+}: {
+  relayMarkers: RelayMarker[];
+  worldSize: number;
+}) {
+  const map = useMap();
+  const layerRef = useRef<L.LayerGroup | null>(null);
+  const labelLayerRef = useRef<L.LayerGroup | null>(null);
+
+  useEffect(() => {
+    const pane = map.getPane('athena-ao-marker') ?? map.createPane('athena-ao-marker');
+    pane.style.zIndex = '607';  // above relay-marker pane (605)
+    pane.style.pointerEvents = 'none';
+
+    const labelPane = map.getPane('athena-ao-label') ?? map.createPane('athena-ao-label');
+    labelPane.style.zIndex = '608';
+    labelPane.style.pointerEvents = 'none';
+
+    const layer = L.layerGroup().addTo(map);
+    const labelLayer = L.layerGroup().addTo(map);
+    layerRef.current = layer;
+    labelLayerRef.current = labelLayer;
+    return () => {
+      map.removeLayer(layer);
+      map.removeLayer(labelLayer);
+      layerRef.current = null;
+      labelLayerRef.current = null;
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const layer = layerRef.current;
+    const labelLayer = labelLayerRef.current;
+    if (!layer || !labelLayer) return;
+    layer.clearLayers();
+    labelLayer.clearLayers();
+    if (!Number.isFinite(worldSize) || worldSize <= 0) return;
+
+    const scale = 100 / worldSize;
+    const aoMarkers = filterAoMarkers(relayMarkers);
+
+    aoMarkers.forEach((marker) => {
+      if (!Number.isFinite(marker.posX) || !Number.isFinite(marker.posY)) return;
+
+      const color = relayMarkerColor(marker.color);
+      const alpha = Math.max(0.05, Math.min(1, Number.isFinite(marker.alpha) ? marker.alpha : 1));
+      const dir = Number.isFinite(marker.dir) ? marker.dir : 0;
+      const shape = relayMarkerShape(marker);
+
+      const ll: [number, number] = [marker.posY * scale, marker.posX * scale];
+      if (shape === 'rectangle' || shape === 'ellipse') {
+        let points: [number, number][];
+        if (shape === 'rectangle') {
+          points = rotatedMarkerRect(
+            marker.posX * scale, marker.posY * scale,
+            marker.sizeX * scale, marker.sizeY * scale,
+            dir,
+          );
+        } else {
+          points = rotatedMarkerEllipse(
+            marker.posX * scale, marker.posY * scale,
+            marker.sizeX * scale, marker.sizeY * scale,
+            dir,
+          );
+        }
+
+        L.polygon(points, {
+          pane: 'athena-ao-marker',
+          interactive: false,
+          color,
+          weight: 1.2,
+          opacity: Math.max(alpha, 0.3),
+          fillColor: color,
+          fillOpacity: Math.max(alpha * 0.25, 0.08),
+        }).addTo(layer);
+      } else {
+        const iconPath = relayMarkerIconPath(marker);
+        if (iconPath) {
+          const sizeScale = Math.max(0.5, Math.min(3, Number.isFinite(marker.sizeX) ? marker.sizeX : 1));
+          const iconPx = Math.round(65 * sizeScale);
+          const iconAnchor = Math.round(iconPx / 2);
+          const label = relayMarkerLabel(marker);
+          const numericIconLabel = Boolean(label) && isNumericAoIconLabel(marker, label);
+          L.marker(ll, {
+            pane: 'athena-ao-marker',
+            interactive: false,
+            icon: L.divIcon({
+              className: '',
+              iconSize: [iconPx, iconPx],
+              iconAnchor: [iconAnchor, iconAnchor],
+              html: numericIconLabel
+                ? numericAoIconHtml(color, alpha, iconPx, label)
+                : `<div style="width:${iconPx}px;height:${iconPx}px;background:${color};opacity:${alpha};` +
+                  `-webkit-mask:url('${iconPath}') center / contain no-repeat;mask:url('${iconPath}') center / contain no-repeat;` +
+                  `filter:drop-shadow(0 0 1px rgba(0,0,0,0.85));"></div>`,
+            }),
+          }).addTo(layer);
+        } else {
+          L.circleMarker(ll, {
+            pane: 'athena-ao-marker',
+            interactive: false,
+            radius: 6.25,
+            color: '#121418',
+            weight: 1,
+            fillColor: color,
+            fillOpacity: alpha,
+          }).addTo(layer);
+        }
+      }
+
+      if (!shouldRenderAoLabel(marker)) return;
+      const label = relayMarkerLabel(marker);
+      if (!label) return;
+      if (isNumericAoIconLabel(marker, label)) {
+        return;
+      }
+      const labelPresentation = aoMarkerLabelPresentation(marker, label, color);
+      L.marker(ll, {
+        pane: 'athena-ao-label',
+        interactive: false,
+        icon: L.divIcon({
+          className: '',
+          iconSize: [0, 0],
+          iconAnchor: labelPresentation.iconAnchor,
+          html: labelPresentation.html,
+        }),
+      }).addTo(labelLayer);
+    });
+  }, [relayMarkers, worldSize]);
 
   return null;
 }
@@ -3084,19 +3793,26 @@ function StartupRecenterControl({ world, worldSize }: { world: string; worldSize
 
 export function AthenaMap({
   units, vehicles, groups,
-  lazes = [],
-  firedEvents = [],
-  firedImpacts = [],
+  relayMarkers = [],
+  pulseUnitIds = NO_PULSE_UNITS,
+  mapExtensions,
+  overlayExtensions,
   world = '', worldSize = 10240,
   roads = [], forests = null, locations = [], structures = [], elevations = null, contours = [],
   layers, onLayersChange, renderMode = '2d',
   vehicleMap = new Map(), locationMap = new Map(),
+  shorelineRefreshToken = 0,
   onRegisterFocus,
   onRegisterPan,
+  onUserInteraction,
+  storedITgtTargets = [],
+  firewillITgtTargets = [],
+  onStoreCursorITgt,
+  isTouchInput = false,
 }: MapProps) {
   const bounds: L.LatLngBoundsExpression = [[0, 0], [100, 100]];
-  const [projectileDebugEntries, setProjectileDebugEntries] = useState<ProjectileDebugEntry[]>([]);
   const [cursorCoords, setCursorCoords] = useState<{ x: number; y: number; z: number | null } | null>(null);
+  const [cursorHudCollapsed, setCursorHudCollapsed] = useState(false);
   const elevLookup = useMemo(() => {
     if (!elevations || elevations.cells.length === 0) return null;
     const step = elevations.sampleSize;
@@ -3106,6 +3822,16 @@ export function AthenaMap({
     }
     return { m, step };
   }, [elevations]);
+
+  const iTgtCoordinate = useMemo(() => {
+    if (!cursorCoords) return '--------';
+    return toITgt8(cursorCoords.x, cursorCoords.y);
+  }, [cursorCoords]);
+
+  const storeCursorITgt = useCallback(() => {
+    if (!onStoreCursorITgt || !cursorCoords) return;
+    onStoreCursorITgt({ x: cursorCoords.x, y: cursorCoords.y, code: toITgt8(cursorCoords.x, cursorCoords.y) });
+  }, [onStoreCursorITgt, cursorCoords]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -3126,14 +3852,17 @@ export function AthenaMap({
       <ZoomSliderControl />
       <StartupRecenterControl world={world} worldSize={worldSize} />
       {(onRegisterFocus || onRegisterPan) && <FocusBridge worldSize={worldSize} onRegisterFocus={onRegisterFocus} onRegisterPan={onRegisterPan} />}
+      {onUserInteraction && <UserInteractionBridge onInteraction={onUserInteraction} />}
       <CursorCoordinateBridge worldSize={worldSize} elevLookup={elevLookup} onChange={setCursorCoords} />
+      {onStoreCursorITgt && <ITgtCaptureBridge cursorCoords={cursorCoords} onStoreCursorITgt={onStoreCursorITgt} />}
+      <RelayMarkerLayer relayMarkers={relayMarkers} worldSize={worldSize} showArmaMarkers={layers.armaMarkers} showSpawnMarkers={layers.spawnMarkers} />
+      <AoMarkerLayer relayMarkers={layers.aoMarkers ? relayMarkers : []} worldSize={worldSize} />
+      <ITgtMarkerLayer targets={storedITgtTargets} firewillTargets={layers.firewillITgtMarkers ? firewillITgtTargets : []} worldSize={worldSize} />
       <LayerManager
         units={units}
         vehicles={vehicles}
         groups={groups}
-        lazes={lazes}
-        firedEvents={firedEvents}
-        firedImpacts={firedImpacts}
+        pulseUnitIds={pulseUnitIds}
         world={world}
         worldSize={worldSize}
         roads={roads}
@@ -3147,107 +3876,110 @@ export function AthenaMap({
         renderMode={renderMode}
         vehicleMap={vehicleMap}
         locationMap={locationMap}
-        onProjectileDebugChange={setProjectileDebugEntries}
+        shorelineRefreshToken={shorelineRefreshToken}
       />
+      {mapExtensions}
     </MapContainer>
-    {projectileDebugEntries.length > 0 && (
-      <div
-        style={{
-          position: 'absolute',
-          top: 12,
-          right: 58,
-          zIndex: 1200,
-          pointerEvents: 'none',
-          minWidth: 320,
-          maxWidth: 420,
-          background: 'linear-gradient(180deg, rgba(30,40,26,0.88), rgba(12,18,12,0.92))',
-          border: '1px solid rgba(193,214,160,0.55)',
-          boxShadow: '0 0 0 1px rgba(12,18,10,0.7), 0 8px 18px rgba(0,0,0,0.45)',
-          color: '#D9EBC2',
-          borderRadius: 6,
-          fontFamily: 'Consolas, "Lucida Console", monospace',
-          overflow: 'hidden',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '6px 10px',
-            fontSize: 11,
-            letterSpacing: 1,
-            background: 'rgba(162,189,120,0.12)',
-            borderBottom: '1px solid rgba(193,214,160,0.35)',
-            textTransform: 'uppercase',
-            fontWeight: 700,
-          }}
-        >
-          <span>Fire Control</span>
-          <span style={{ color: '#FFCD7E' }}>Track Live</span>
-        </div>
-        <div style={{ padding: '6px 8px 8px 8px' }}>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1.7fr 0.8fr 0.8fr 0.7fr 1fr',
-              columnGap: 8,
-              fontSize: 10,
-              opacity: 0.78,
-              padding: '0 2px 5px 2px',
-              borderBottom: '1px dashed rgba(193,214,160,0.25)',
-              marginBottom: 4,
-            }}
-          >
-            <span>Callsign</span>
-            <span>Lock</span>
-            <span>Src</span>
-            <span>ETA</span>
-            <span>Target</span>
-          </div>
-          {projectileDebugEntries.map(entry => (
-            <div
-              key={entry.trackKey}
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '1.7fr 0.8fr 0.8fr 0.7fr 1fr',
-                columnGap: 8,
-                fontSize: 11,
-                padding: '3px 2px',
-                borderBottom: '1px solid rgba(193,214,160,0.10)',
-                background: entry.lockSwitched ? 'linear-gradient(90deg, rgba(255,94,94,0.22), rgba(255,180,120,0.04))' : 'transparent',
-              }}
-            >
-              <span style={{ color: '#E8F4D1', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={`${entry.shooter} · ${entry.weapon}`}>{entry.shooter}</span>
-              <span style={{ color: entry.lock === 'LAZE' ? '#FF9B9B' : entry.lock === 'UNIT' ? '#FFC778' : '#A9D3FF', fontWeight: 700 }}>{entry.lock}</span>
-              <span>{entry.source}</span>
-              <span>{entry.etaSec}s</span>
-              <span>{entry.target}{entry.lockSwitched ? ' SW' : ''}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )}
+    {overlayExtensions}
     <div
       style={{
-        position: 'absolute',
-        right: 12,
+        position: 'fixed',
+        left: '50%',
         bottom: 12,
-        zIndex: 1200,
-        pointerEvents: 'none',
-        padding: '5px 8px',
-        borderRadius: 6,
-        background: 'rgba(10,10,12,0.72)',
-        border: '1px solid rgba(220,220,220,0.25)',
-        color: '#f2f2ec',
-        fontSize: 11,
-        fontFamily: 'Consolas, "Lucida Console", monospace',
-        fontVariantNumeric: 'tabular-nums',
+        transform: 'translateX(-50%)',
+        zIndex: 1300,
+        pointerEvents: 'auto',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 6,
       }}
     >
-      {cursorCoords
-        ? `X:${cursorCoords.x.toFixed(2)} Y:${cursorCoords.y.toFixed(2)}${cursorCoords.z !== null ? ` Z:${cursorCoords.z.toFixed(1)}` : ''}`
-        : 'X:-- Y:--'}
+      {cursorHudCollapsed ? (
+        <button
+          type="button"
+          onClick={() => setCursorHudCollapsed(false)}
+          title="Expand cursor and I-TGT panel"
+          style={{
+            border: '1px solid rgba(220,220,220,0.28)',
+            borderRadius: 6,
+            background: 'rgba(10,10,12,0.82)',
+            color: '#f2f2ec',
+            fontSize: 15,
+            fontWeight: 700,
+            width: 34,
+            height: 28,
+            cursor: 'pointer',
+          }}
+        >
+          ^
+        </button>
+      ) : (
+        <div
+          style={{
+            padding: '8px 10px',
+            borderRadius: 6,
+            background: 'rgba(10,10,12,0.72)',
+            border: '1px solid rgba(220,220,220,0.25)',
+            color: '#f2f2ec',
+            fontSize: 14,
+            fontFamily: 'Consolas, "Lucida Console", monospace',
+            fontVariantNumeric: 'tabular-nums',
+            minWidth: 210,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+            <span style={{ color: '#FFCD7E', fontSize: 16, fontWeight: 700, letterSpacing: 0.4 }}>I-TGT:{iTgtCoordinate}</span>
+            <button
+              type="button"
+              onClick={() => setCursorHudCollapsed(true)}
+              title="Collapse cursor and I-TGT panel"
+              style={{
+                border: '1px solid rgba(220,220,220,0.20)',
+                borderRadius: 4,
+                background: 'rgba(22,22,28,0.85)',
+                color: '#d7d9df',
+                fontSize: 13,
+                fontWeight: 700,
+                width: 24,
+                height: 22,
+                cursor: 'pointer',
+                lineHeight: 1,
+              }}
+            >
+              v
+            </button>
+          </div>
+          {cursorCoords
+            ? `X:${cursorCoords.x.toFixed(2)} Y:${cursorCoords.y.toFixed(2)}${cursorCoords.z !== null ? ` Z:${cursorCoords.z.toFixed(1)}` : ''}`
+            : 'X:-- Y:--'}
+          {isTouchInput && onStoreCursorITgt && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <button
+                type="button"
+                onClick={storeCursorITgt}
+                disabled={!cursorCoords}
+                style={{
+                  border: '1px solid rgba(183,196,222,0.6)',
+                  borderRadius: 4,
+                  background: cursorCoords ? 'rgba(31,58,116,0.92)' : 'rgba(55,55,60,0.65)',
+                  color: cursorCoords ? '#EAF1FF' : '#A7ACB8',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  letterSpacing: 0.2,
+                  padding: '5px 8px',
+                  cursor: cursorCoords ? 'pointer' : 'not-allowed',
+                }}
+              >
+                SAVE TGT
+              </button>
+              <div style={{ color: '#B7C4DE', fontSize: 11 }}>
+                Tap map to set cursor, then Save.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
     </div>
   );

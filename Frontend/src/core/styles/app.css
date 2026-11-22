@@ -1,7 +1,53 @@
+/*
+ * Shared UI core styles (see docs/ui-core-sync.md): app shell, collapsible
+ * sidebars, welcome screen, export overlay, map labels, tablet layout.
+ * Copied one-way to Athena Remastered. App-specific styles live next to
+ * the app's own components (e.g. adapter/MapCacheBanner.css in Web2).
+ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; overflow: hidden; }
-.app-shell { display: grid; grid-template-columns: 260px 1fr 220px; height: 100vh; }
+
+:root {
+  --app-top-offset: env(safe-area-inset-top, 0px);
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+/* Keep raster overlays crisp, but allow anti-aliased vector coast/contour paths. */
+canvas { image-rendering: pixelated; }
+.leaflet-overlay-pane svg,
+.leaflet-pane svg {
+  shape-rendering: geometricPrecision;
+}
+
+/* Smooth land/ocean shoreline transitions for raster land masks. */
+.leaflet-athena-land-pane .leaflet-image-layer.athena-landmask-overlay {
+  image-rendering: auto !important;
+  -ms-interpolation-mode: bicubic;
+  transform: translateZ(0);
+}
+
+body {
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+.app-shell {
+  display: grid;
+  grid-template-columns: 260px 1fr 220px;
+  height: 100vh;
+  height: 100dvh;
+  padding-top: var(--app-top-offset);
+}
+.app-shell.left-collapsed { grid-template-columns: 0 1fr 220px; }
+.app-shell.right-collapsed { grid-template-columns: 260px 1fr 0; }
+.app-shell.left-collapsed.right-collapsed { grid-template-columns: 0 1fr 0; }
 .sidebar { background: #161b22; border-right: 1px solid #21262d; overflow-y: auto; display: flex; flex-direction: column; }
+.sidebar.collapsed { width: 0; min-width: 0; border-right: none; overflow: hidden; }
 .sidebar-header { background: #0d1117; padding: 10px 16px; border-bottom: 1px solid #21262d; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .logo-text { font-weight: 800; font-size: 14px; letter-spacing: 2px; color: #2ecc71; text-transform: uppercase; }
 .donate-link { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: #f0a500; text-decoration: none; opacity: 0.75; white-space: nowrap; transition: opacity 0.15s; }
@@ -10,6 +56,32 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
 .version-label { font-size: 9px; font-weight: 600; letter-spacing: 0.5px; color: #555; white-space: nowrap; }
 .map-area { position: relative; background: #1a2a1a; }
 .map-area > div:first-child { width: 100%; height: 100%; }
+.sidebar-toggle {
+  position: absolute;
+  top: 12px;
+  transform: none;
+  z-index: 1205;
+  width: 24px;
+  height: 30px;
+  border: 1px solid #35414d;
+  background: rgba(13, 17, 23, 0.86);
+  color: #d0dae3;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-toggle:hover { background: rgba(26, 37, 49, 0.92); }
+.sidebar-toggle.left { left: 6px; }
+.sidebar-toggle.right { right: 6px; }
+.sidebar-toggle.collapsed {
+  background: rgba(22, 34, 46, 0.9);
+  border-color: #4b5f73;
+}
 
 /* -- Welcome overlay (no game data yet) ----------------------------------- */
 .welcome-overlay {
@@ -138,6 +210,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
   color: #f0a500;
 }
 .event-panel { background: #161b22; border-left: 1px solid #21262d; display: flex; flex-direction: column; overflow: hidden; }
+.event-panel.collapsed { width: 0; min-width: 0; border-left: none; overflow: hidden; }
 .panel-header { background: #0d1117; padding: 14px 16px; border-bottom: 1px solid #21262d; font-size: 12px; font-weight: 700; letter-spacing: 2px; color: #888; }
 .event-panel > div:last-child { flex: 1; overflow-y: auto; padding: 12px; }
 
@@ -150,16 +223,16 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
   color: #e0dcc8;
   font-family: 'Aptos', 'Aptos Display', 'Calibri', 'Segoe UI', system-ui, sans-serif;
   font-weight: 700;
-  /* Dark outline halo — military topo map style, readable on any background */
+  /* Dark outline halo  military topo map style, readable on any background */
   text-shadow:
-    -1px -1px 0 rgba(0,0,0,0.85),
-     1px -1px 0 rgba(0,0,0,0.85),
-    -1px  1px 0 rgba(0,0,0,0.85),
-     1px  1px 0 rgba(0,0,0,0.85),
-    -1px  0   0 rgba(0,0,0,0.85),
-     1px  0   0 rgba(0,0,0,0.85),
-     0   -1px 0 rgba(0,0,0,0.85),
-     0    1px 0 rgba(0,0,0,0.85);
+    -1px -1px 0 #000,
+     1px -1px 0 #000,
+    -1px  1px 0 #000,
+     1px  1px 0 #000,
+    -1px  0   0 #000,
+     1px  0   0 #000,
+     0   -1px 0 #000,
+     0    1px 0 #000;
   white-space: nowrap;
   pointer-events: none;
   text-transform: uppercase;
@@ -185,7 +258,7 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
   line-height: 1;
   letter-spacing: 0.2px;
   white-space: nowrap;
-  text-shadow: -1px 0 0 rgba(0,0,0,0.92), 1px 0 0 rgba(0,0,0,0.92), 0 -1px 0 rgba(0,0,0,0.92), 0 1px 0 rgba(0,0,0,0.92);
+  text-shadow: -1px 0 0 #000, 1px 0 0 #000, 0 -1px 0 #000, 0 1px 0 #000;
 }
 
 .map-marker-player .map-marker-label {
@@ -216,4 +289,22 @@ body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', system-ui, 
   line-height: 1.35;
   white-space: nowrap;
   text-shadow: -1px 0 0 rgba(0,0,0,0.88), 1px 0 0 rgba(0,0,0,0.88), 0 -1px 0 rgba(0,0,0,0.88), 0 1px 0 rgba(0,0,0,0.88);
+}
+
+/* iPad Mini / tablet optimization */
+@media (max-width: 1200px) {
+  .app-shell { grid-template-columns: 224px 1fr 172px; }
+  .app-shell.left-collapsed { grid-template-columns: 0 1fr 172px; }
+  .app-shell.right-collapsed { grid-template-columns: 224px 1fr 0; }
+  .sidebar-header { padding: 8px 10px; }
+  .logo-text { font-size: 12px; letter-spacing: 1.2px; }
+  .donate-link { font-size: 9px; }
+}
+
+/* iPad Safari landscape can overlay page content with browser chrome/favorites.
+   Add an extra top offset on coarse-pointer landscape devices. */
+@media (hover: none) and (pointer: coarse) and (orientation: landscape) {
+  :root {
+    --app-top-offset: max(env(safe-area-inset-top, 0px), 38px);
+  }
 }

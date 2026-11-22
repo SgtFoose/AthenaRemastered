@@ -1,4 +1,4 @@
-import type { KilledEvent, FiredEvent } from '../types/game';
+import type { KilledEvent, FiredEvent } from '../core/types/game';
 
 interface Props {
   kills: KilledEvent[];

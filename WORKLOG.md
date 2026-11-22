@@ -4,6 +4,38 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Frontend: adopt the shared UI core from Athena Web 2 (Phase 2 step 2)
+- PR #1 (layout flatten + process files) merged by the owner as `b640b5d`. Local `main` updated, branch deleted. New branch `feat/adopt-shared-core`.
+- **Core copied** with Web2's `scripts/sync-core-to-ar.ps1` into `Frontend/src/core/`, with a manifest `core-manifest.json` (current source: Web2 commit `6476a24`). Re-syncs on this branch (after the Web2 fixes below) updated only the changed files (2, then 1), and the drift check passed (no hand edits in AR's core).
+- **AR-specific files:**
+  - `Frontend/src/appConfig.ts`: `API_BASE` (backend :5000), name/version from `version.ts`, `DONATE_URL` = PayPal.Me (the old `donate/?business=` link fails for this account), and `MAP_DATA` (same endpoints, `landmaskGridSize` 1024, **`landmaskRowOrder: 'north-first'`** because `StaticMapController` returns row 0 = north)
+  - `CAPABILITIES`: lazes/projectiles/killFeed/waypointToggle on; relayMarkers and worldPicker off
+  - `Frontend/src/adapter/useAthenaHub.ts`: AR's SignalR hook moved here (`git mv`); imports point at `core/types/game` and `appConfig`
+  - `Frontend/src/extensions/projectileTracking.tsx` (new):
+    - `ProjectileTrackingLayers` (laze + projectile prediction into the core's `athena-laze` / `athena-projectile` panes via `mapExtensions`)
+    - `FireControlPanel` (`overlayExtensions`)
+    - `useRecentShooterIds` (`pulseUnitIds`, `FIRING_PULSE_WINDOW_MS = 2200`)
+    - Behaviour ported unchanged from AR's map code (via Web2 commit `966b6bc`) by a one-off assembly script (scratchpad, not committed). Known projectile bugs are kept for the v2 redesign.
+  - `Frontend/src/App.tsx` rewritten as the AR composition: core + adapter + extension + `EventFeed` (right panel below the I-TGT panel).
+    - **The map now only shows the world of a live mission** (`frame.mission`). The welcome screen shows until then, which fixes the visible part of "Malden shown while Arma is in the main menu". The backend still auto-loads the last world; that backend fix is separate.
+- **Removed (superseded by the core):** `components/AthenaMap.tsx`, `components/Sidebar.tsx`, `hooks/useStaticMap.ts`, `hooks/useAthenaLibrary.ts`, `types/game.ts`, `App.css` (it had no selectors that aren't in `core/styles/app.css`).
+- **Core gaps found and fixed in Web2** (one-way rule), then re-synced:
+  - the core sidebar showed Web2's offline world picker ("select a map / use Athena Desktop") → new `CAPABILITIES.worldPicker` (AR: off, shows "Waiting for a mission")
+  - AR's `/api/game/trees` returns **204 No Content** when empty, and the core parsed it as JSON → now treated as "no trees"
+- Validation:
+  - `npm run build` passed
+  - **Live simulation without Arma**: AR backend (`dotnet run`, :5000) + Vite (:5174), game data sent through the real `POST /api/game/put` API (mission "Sim Op" on Stratis, world, time, group, unit with an active laser, a mortar `fired`). Screenshot through a Chrome DevTools script (scratchpad), because headless `--screenshot` captured at ~0.5 s; SignalR keeps the network busy, so `--virtual-time-budget` never settles.
+  - Result:
+    - welcome screen without a mission
+    - with the mission: Connected, live Stratis, laze marker, projectile track "LASE ETA 16s", Fire Control row, Recent Shots in EVENTS, I-TGT panel, collapse buttons, AR toggles (Waypoints / Active Lazes / Projectile Tracking), no marker toggles
+    - only remaining console output: the expected warning "No runtime tree data returned for Stratis"
+  - ESLint (non-core files): 2 × `react-hooks/set-state-in-effect` in `App.tsx` (same pattern as Web2) and 1 × `react-refresh/only-export-components` in `extensions/projectileTracking.tsx` (hook and components in one file; affects dev hot reload only).
+  - Not tested yet: live Arma with the real DLL and Athena Desktop terrain (no Arma on this machine). The owner should test before merge.
+- Line endings: Git for Windows (`core.autocrlf`) warned "LF will be replaced by CRLF" on the copied core files. The sync manifest hashed raw bytes, so later checkouts would have flagged every core file as "modified in AR".
+  - Fixed in Web2's sync script (`5a1c226`: CRLF→LF normalised hashing).
+  - Re-ran with `-Force` to rewrite `core-manifest.json`: the old manifest flagged all 17 files (the false positive), **0 files were copied** (content identical), and only the manifest changed.
+- Owner approved push + PR. Opened **PR #2** https://github.com/SgtFoose/AthenaRemastered/pull/2. It depends on Web2 PR #6, and should only be merged after the owner's live Arma test (rendering on a cached map, lazes/projectiles as before, collapsible menus, I-TGT, welcome screen in the main menu).
+
 ### 2026-11-22 — Process + layout: Claude Code setup and repo flatten (Phase 2 step 1 of the Web2 → AR UI core sync)
 - Context: the owner moved development from GitHub Copilot to Claude Code (the same process as Athena Web 2) and asked to bring AR and Web2 in sync, including GitHub structure and releases. Plan: Web2 `docs/ui-core-sync.md` (merged in Web2 PR #5).
 - **Repo layout flattened** (owner decision: "flatten, like Web2"), branch `chore/flatten-repo-layout`:
@@ -58,7 +90,10 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 - [x] Install the .NET 9 SDK on the dev machine (done 2026-11-22, 9.0.321).
 - [ ] Safari vs Chrome sync drift on tablets. Projectile timing should not depend on the client clock: compute a server-clock offset or use server-relative times. Check SignalR reconnect/keep-alive behaviour on iOS Safari.
-- [ ] Adopt the shared UI core from Web2 with an AR adapter (SignalR) and `appConfig` (`landmaskRowOrder: 'north-first'`).
+- [x] Adopt the shared UI core from Web2 with an AR adapter (SignalR) and `appConfig` (`landmaskRowOrder: 'north-first'`) (branch `feat/adopt-shared-core`, pending the owner's live test).
+- [ ] Steam Workshop pages: align AR and Web2. Names differ ("Athena Remastered" vs "@AthenaWeb2"), Web2's tags are odd (Animation, Editor Extension, Equipment, Terrain; AR: Mechanics), and the description styles differ. Owner request 2026-11-22, screenshots from Arma 3 Publisher.
+- [ ] Optional: offline world picker for AR (`CAPABILITIES.worldPicker`) over AR's cached worlds.
+- [ ] Split `useRecentShooterIds` out of `extensions/projectileTracking.tsx` (react-refresh lint).
 - [ ] Backend: drop the startup world auto-load.
 - [ ] SQF: main-menu guard in `init.sqf`.
 - [ ] Backend: skip the auto world export for cached worlds.

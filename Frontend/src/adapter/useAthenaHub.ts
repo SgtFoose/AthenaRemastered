@@ -1,8 +1,8 @@
 import { HubConnectionBuilder, HubConnection, LogLevel } from '@microsoft/signalr';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { GameFrame, FiredEvent, FiredImpactEvent, KilledEvent, WorldInfo, Road, ForestsData, MapLocation, MapStructure, ElevationsData, ServerSettings, ExportStatus } from '../types/game';
+import type { GameFrame, FiredEvent, FiredImpactEvent, KilledEvent, WorldInfo, Road, ForestsData, MapLocation, MapStructure, ElevationsData, ServerSettings, ExportStatus } from '../core/types/game';
 
-import { API_BASE } from '../apiBase';
+import { API_BASE } from '../appConfig';
 
 const HUB_URL = `${API_BASE}/hub`;
 
