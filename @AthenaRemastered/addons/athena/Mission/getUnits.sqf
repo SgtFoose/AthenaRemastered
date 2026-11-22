@@ -66,17 +66,14 @@ _unitsPlayable = playableUnits;
         };
 
         //Check if our event handlers have been added to the unit
+        // Only FiredMan: it fires for every shot of the unit, on foot AND from a
+        // vehicle seat (8th param = vehicle). Until 1.2.0 a unit "Fired" handler was
+        // added too; for on-foot shots both handlers ran, so every shot was reported
+        // twice in "Recent Shots". getVehicles.sqf skips vehicle shots of units that
+        // carry ATHENA_EVENTS, because this handler already reports them.
         if (!(_x getVariable ["ATHENA_EVENTS", false])) then {
                 _x addEventHandler ["FiredMan", {
                         if (isClass(configFile >> "CfgPatches" >> "athena")) then { _this call ATH_fnc_HandleFired; };
-                }];
-                _x addEventHandler ["Fired", {
-                        if (isClass(configFile >> "CfgPatches" >> "athena")) then {
-                                params ["_unit", "_weapon", "_muzzle", "_mode", "_ammo", "_magazine", "_projectile"];
-                                private _veh = vehicle _unit;
-                                if (_veh isEqualTo _unit) then { _veh = objNull; };
-                                [_unit, _weapon, _muzzle, _mode, _ammo, _magazine, _projectile, _veh] call ATH_fnc_HandleFired;
-                        };
                 }];
                 _x setVariable ["ATHENA_EVENTS", true];
         };

@@ -23,15 +23,22 @@ if (!isNull _last && {_last isKindOf "AllVehicles"}) then {
 };
 };
 
-// Prevent duplicate fired reports: the unit's FiredMan and Fired handlers (and the
-// vehicle's Fired handler) all observe the same projectile.
-// The exitWith must be at the top level of this script: inside an
-// `if (...) then { ... }` block it only leaves that block, so before 1.2.0 the
-// guard never stopped the second report and every shot appeared twice in
-// "Recent Shots".
-if (!isNull _projectile && {_projectile getVariable ["ATHENA_FIRED_SENT", false]}) exitWith {};
+// Safety net against duplicate fired reports. Normally each shot reaches this
+// script once (the unit's FiredMan handler, or the vehicle's Fired handler for
+// gunners Athena doesn't track), but if a projectile still arrives twice, the
+// second report is dropped here.
+// The projectile object itself is remembered in a short list instead of a
+// variable on the projectile: a setVariable guard on the projectile did not stop
+// the duplicates in live tests (1.2.0). The exitWith must stay at the top level
+// of this script; inside an `if (...) then { ... }` block it only leaves that block.
+private _recentShots = missionNamespace getVariable ["ATH_recentFiredProjectiles", []];
+if (!isNull _projectile && {_projectile in _recentShots}) exitWith {};
 if (!isNull _projectile) then {
-        _projectile setVariable ["ATHENA_FIRED_SENT", true, false];
+        _recentShots pushBack _projectile;
+        // Keep the list short: duplicates arrive in the same frame, so the last
+        // 64 projectiles are plenty even for miniguns.
+        if ((count _recentShots) > 64) then { _recentShots deleteRange [0, (count _recentShots) - 64]; };
+        missionNamespace setVariable ["ATH_recentFiredProjectiles", _recentShots];
 };
 
 //set initial values

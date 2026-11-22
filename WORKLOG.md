@@ -4,6 +4,27 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Live test feedback on 1.2.0-test (e15e8a0): duplicate shots, "P:" crew labels, cut-off version label
+- Owner tested `D:\@AthenaRemastered` on Malden. Results:
+  - version label in the header cut off to "v1...."
+  - vehicle labels unchanged (crew showed "P:")
+  - one shot (`srifle_LRR_camo_F`, `B_408_Ball`) still gave two Recent Shots entries
+  - Ground/Pilot map styles don't meet their purpose (added to the backlog)
+- **Duplicate shots.** Backend → SignalR → frontend is a single path: one PUT gives one `Fired` broadcast, and `useAthenaHub` registers `conn.on('Fired')` once, without StrictMode. The duplicate comes from SQF: for on-foot shots, both the unit's `FiredMan` and its `Fired` handler run. The 1.2.0 guard (`setVariable` on the projectile) didn't stop it live. Fix:
+  - `Mission/getUnits.sqf`: only `FiredMan` is added. It covers on-foot and vehicle-seat shots.
+  - `Mission/getVehicles.sqf`: the vehicle `Fired` handler skips gunners that carry `ATHENA_EVENTS`, since their own `FiredMan` reports the shot. Gunners Athena doesn't track are still reported.
+  - `Events/handleFired.sqf`: the safety net now remembers the last 64 projectile objects in `ATH_recentFiredProjectiles` (`in` compares by object reference) instead of a variable on the projectile.
+- **"P:" crew labels.** The extension (`Extension/json_builder.h`) forwards every callExtension argument as a JSON string. A vehicle's crew list therefore arrives as the text `"[[\"2:345\",\"gunner\"]]"`. `GameController` only accepted a real JSON array, so in game `Crew` was always empty and the core labelled everyone "P:". The earlier simulation sent a real array, which is why it passed.
+  - Fix: new `GameController.ParseCrew` accepts both forms.
+  - The DLL is unchanged, so the BattlEye hash is preserved.
+  - Side effect: the existing "remove vehicle when all crew are dead" logic in `GameStateService` now gets real data.
+- **Version label.** Shared-core CSS fix from Web2 (`fix/header-version-label` @ `1c81c87`), synced with `sync-core-to-ar.ps1` (`styles/app.css`, `core-manifest.json`).
+- Branch `fix/fired-dedupe-header-label`, stacked on `release/v1.2.0` (PR #9 open).
+- Validation: `dotnet build -c Release` OK (0 warnings).
+- Simulation (test build `878ff7e`, put API): `vehicle` with the crew sent as the string `[["2:10","gunner"],["2:11","commander"]]` → `/api/game/state` shows `crew` with both roles. Headless screenshot: the header shows `v1.2.0-test` and `Donate` in full. The duplicate-shot fix is SQF-only and needs the live test.
+- Test package: the owner's D: drive (USB) was no longer present, so the complete mod folder is staged at `C:\AthenaRemastered-test\@AthenaRemastered`. Contents: new unsigned `athena.pbo`, DLL `3DE7F325…` unchanged, `Server\` test build `878ff7e`, and `TEST-INSTRUCTIONS.txt` explaining how to verify via the `FIRED PUT received` console line.
+- The v1.2.0 draft release asset is now outdated; it will be rebuilt after these fixes are merged and the PBO is signed.
+
 ### 2026-11-22 — PRs merged; test builds of main on D:
 - Owner merged Web2 #8, #9 and AR #4–#8 (merge commits). Local `main` fast-forwarded in both repos (Web2 `d3278fb`, AR `e15e8a0`); merged local branches deleted.
 - AR test package `D:\AthenaRemastered-test` (`v1.2.0-test (e15e8a0)`):
@@ -259,3 +280,4 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [ ] Turn `ATHENA_DEBUG_FIRED` off by default (it currently logs every tracked shell to the RPT).
 - [ ] GitHub: branch ruleset like Web2, a release-notes template, tag `v1.1.6`, GitHub Releases.
 - [ ] README/About in Web2's structure.
+- [ ] Map Style Ground / Pilot rework (shared core, implemented in Web2 and synced; owner request 2026-11-22): **Ground** = height map for ground troops, **Pilot** = black-and-white height map (dark = low, light = high) so pilots see peaks and valleys at a glance. 2D is fine as is.
