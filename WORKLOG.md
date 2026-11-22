@@ -4,6 +4,18 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — release: PBO signing prerequisites
+- The owner's PC with Arma 3 Tools has been wiped. Searched this machine (`C:\Users`) and the owner's USB drive (`D:\`) for `*.biprivatekey`: none found, only the public `AthenaRemasteredKey.bikey`. The private key is gitignored by design (`.gitignore`: `*.biprivatekey`).
+- Needed to sign:
+  - Arma 3 Tools (Steam; `DSSignFile` / `DSCreateKey` in `Arma 3 Tools\DSSignFile\`)
+  - the private key `AthenaRemasteredKey.biprivatekey`
+  - Addon Builder is not needed: the PBO is packed with `pack-pbo.ps1`
+- If the key is lost:
+  - create a new pair with `DSCreateKey`
+  - replace `@AthenaRemastered/keys/*.bikey` and the tracked `.bisign`
+  - mention in the release notes that servers verifying signatures must swap the bikey
+  - back up the new private key outside the repo
+
 ### 2026-11-22 — Core sync: map-data status box hides itself after loading
 - Owner request (screenshot of "Loaded from cache" on Malden): hide the box. Shared-core change from Web2 (`c05c765`): `cached` / `complete` disappear after 4 s, while `exporting` stays visible. Synced with `sync-core-to-ar.ps1` (`components/ExportStatusOverlay.tsx`, `core-manifest.json`).
 - Note: the owner's screenshot footer still showed `(e15e8a0)`, so that session ran the previous server build. The new `Server\` in `D:\@AthenaRemastered` must be started for the crew-label and version-label fixes.
