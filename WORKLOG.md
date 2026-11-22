@@ -19,6 +19,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - the Safari bar (clock, battery, LAN IP) cropped off; 1600 px JPEG q88, 240–460 KB each
   - added as a "Screenshots" section to the v1.2.1 release notes, with raw.githubusercontent `main` URLs (they work after the merge)
   - the shots still show the test label `v1.2.0-test (4ca0486)` in the sidebar
+- Owner: testing done; push everything to GitHub, then the release and the Workshop. Branch `release/v1.2.1` pushed, PR #14 → `main`. Workshop package copied to `D:\AthenaRemastered-Workshop-v1.2.1` (PBO hash verified) for signing on the game PC.
 
 ### 2026-11-22 — 1.2.1: tablet projectile tracking (client clock), reconnect, M5 impact
 - Owner: the PC browser shows every projectile, but the tablet needs F5 and often still shows none live; the Fire Control popup is missing.
