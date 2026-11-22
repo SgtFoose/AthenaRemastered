@@ -7,6 +7,24 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
+## [1.2.0] - Unreleased (in development)
+
+### Added
+- Shared UI core from Athena Web 2:
+  - Web2 map rendering (Bus-exact colours, smoothed coastline/contours, airport surfaces, tree rings, vehicle and NATO icons)
+  - collapsible sidebars and tablet layout
+  - I-TGT target capture (T / middle click / SAVE TGT) with a target panel
+  - follow-player auto-off on manual pan/zoom
+- Test builds show their build in the UI (`v1.2.0-test (<commit>)`); release builds (`publish.ps1 -Release`) show only the version
+
+### Changed
+- The map only shows the world of a live mission; until then a welcome screen is shown (previously the last-used world appeared while Arma was still in the main menu)
+- Donate link now opens PayPal.Me
+- Repository layout flattened (source folders at the repo root)
+
+### BattlEye Status
+- Not Submitted: `AthenaServer_x64.dll` is unchanged in this cycle so far; use `-noBE` for singleplayer/LAN
+
 ## [1.1.6] — 2026-03-21
 
 ### Fixed
