@@ -82,3 +82,8 @@ objects-with-runways.png
 
 # Map cache
 MapCache/
+
+# Secrets (never commit)
+.env
+.env/
+.env.*

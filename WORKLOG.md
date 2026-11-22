@@ -4,6 +4,24 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — release: v1.2.0 Workshop package on D:
+- Release docs (commit `ba2cf17`):
+  - `CHANGELOG.md`: `[1.2.0] - 2026-11-22`, with the live-test fixes (shots, crew labels, MLRS impact, silhouettes, status box, header label), Known Limitations and BattlEye status (DLL unchanged)
+  - `.github/release-notes-template-v1.2.0.md` updated
+  - `README.md`: Latest Release and BattlEye status for 1.2.0
+  - `workshop_changenote.txt` rewritten for v1.2.0
+  - `@AthenaRemastered/meta.cpp`: version 1.2.0 (was 1.1.6)
+- Release build with `publish.ps1 -Release` (no `-test` label in the bundle, verified). Package `D:\AthenaRemastered-Workshop-v1.2.0`:
+  - `@AthenaRemastered\` with the unsigned `addons\athena.pbo` (76.2 KB), `keys\AthenaRemasteredKey.bikey`, `mod.cpp`, `meta.cpp`, `AthenaServerSettings.txt`, `AthenaServer_x64.dll` (`3DE7F325…`, unchanged)
+  - `Server\` without `.pdb`, `appsettings.Development.json` and `Logs`
+  - `workshop-change-note-v1.2.0.txt` and `PUBLISH-INSTRUCTIONS.txt`: sign with DS Utils on the game PC, check with DSCheckSignatures, update Workshop item 3687225607 via Publisher
+- D: housekeeping:
+  - the owner had emptied D: on purpose; the items Claude restored from the recycle bin were not wanted
+  - Claude's attempt to recycle them again was blocked by the auto-mode classifier; the owner tidies D: themselves
+  - the signing key backup on D: stays available for step 2
+- `.gitignore`: added `.env`, `.env/`, `.env.*` (`*.biprivatekey` was already ignored)
+- Next: owner signs and publishes to the Workshop → Claude rebuilds the GitHub release zip with the signed PBO and updates the draft → owner merges AR #10 / Web2 #11 and publishes the release.
+
 ### 2026-11-22 — Live test 788d6f4: still two shots per shot; vehicles still squares
 - Owner tested `v1.2.0-test (788d6f4)`; the footer confirms the new server. Results:
   - one `srifle_LRR_camo_F` shot still gave two Recent Shots entries
