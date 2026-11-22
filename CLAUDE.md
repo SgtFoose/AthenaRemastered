@@ -126,7 +126,10 @@ Arma launch: `-mod=@AthenaRemastered -filePatching -noBE`.
    - Plain `.\publish.ps1` makes a **test build**. The UI then shows `v<version>-test (<git sha>[-dirty])`, with the build time on hover. Test builds handed to the owner are always test builds, and should be built from a committed tree (no `-dirty`).
    - `Frontend/vite.config.ts` and `Frontend/src/build-info.d.ts` are identical to Athena Web 2's.
 3. **BattlEye gate:** if `AthenaServer_x64.dll` changed, follow `docs/BATTLEYE_REGISTRATION_AND_RELEASE.md`.
-4. **Publish:** Workshop update. GitHub Release with the server package (planned; AR has no releases yet), using an end-user release-notes template like Web2's.
+4. **Publish:**
+   - **Sign first:** DS Utils on the owner's game PC (key backup kept outside the repo). Click "Reset list" first, because DS Utils skips a second `athena.pbo` as a duplicate. Check that the `.bisign` timestamp is newer than the PBO.
+   - **GitHub Release:** tag `vX.Y.Z` on `main`. Asset `AthenaRemastered-vX.Y.Z.zip` = the complete `@AthenaRemastered` folder with the signed PBO. Notes from `.github/release-notes-template-vX.Y.Z.md`. Compare the local SHA256 with the asset digest.
+   - **Workshop:** Publisher, update item 3687225607. Paste `workshop_changenote.txt` into **Change note**, not Description. Steam's Description limit is **8000 characters**: keep `workshop_description.txt` under it (only the last two versions in its history, older ones via the CHANGELOG link) and check the length before publishing.
 5. Log everything in `WORKLOG.md`. Use the branch + PR workflow; the owner merges.
 
 ## Working rules
