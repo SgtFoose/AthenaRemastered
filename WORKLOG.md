@@ -14,6 +14,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - `Server\` is a copy of `publish\`: the backend fixes + this core fix, label `test (a744c43)`
   - `athena.pbo` packed with `pack-pbo.ps1` from `@AthenaRemastered/addons/athena`: Eden/main-menu guard, new map messages; unsigned, run with `-noBE`
   - The tracked `@AthenaRemastered/Server/wwwroot` that `publish.ps1` rewrites was restored afterwards.
+- Owner photo afterwards: the header label `v1.2.0-test (299e25b)` still pushes "Donate" off screen. That is the old build from before the label fix (`299e25b`). The compact header label (`v1.2.0-test`) is in the new package (`test (a744c43)`), so there is nothing new to fix; the owner needs to run the new server.
 
 ### 2026-11-22 — Backend/SQF fixes: no startup world, stale mission expiry, honest map message, Eden/main-menu guard
 - PR #3 (version 1.2.0 + build label) merged by the owner as `eac69b7`. The test build on `D:` (`1.2.0-test (299e25b)`) matches `main`'s code (0 files differ).
