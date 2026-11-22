@@ -4,6 +4,9 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Follow-up PR after an early merge
+- AR #10 was merged before the last 7 commits were pushed (server dedupe, silhouettes, v1.2.0 release docs, logs), so `main` lacked code that shipped to the Workshop. Follow-up PR #11 → `main` brings `main` in line with the published v1.2.0 before the GitHub release is tagged.
+
 ### 2026-11-22 — release: v1.2.0 published to the Steam Workshop
 - Owner signed `athena.pbo` with DS Utils on the game PC (Authority `AthenaRemasteredKey`):
   - the first attempts signed an old PBO in a Dropbox folder; DS Utils skips a second `athena.pbo` as a duplicate unless the list is reset
