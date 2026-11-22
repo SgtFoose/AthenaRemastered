@@ -4,6 +4,18 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — release: v1.2.0 published to the Steam Workshop
+- Owner signed `athena.pbo` with DS Utils on the game PC (Authority `AthenaRemasteredKey`):
+  - the first attempts signed an old PBO in a Dropbox folder; DS Utils skips a second `athena.pbo` as a duplicate unless the list is reset
+  - the final signature is on a copy of the release package in the owner's Downloads folder
+  - DSCheckSignatures: "No error"
+- Updated Workshop item 3687225607 with Arma 3 Tools Publisher: "Mod content structure seems to be valid", Extensions 64 bit, Signatures "all signed", 113.8 MB, "The item was successfully published".
+- The change note was pasted into the **Description** field, which replaced the long Workshop page description. `workshop_description.txt` was updated for 1.2.0 (vehicle silhouettes, I-TGT, tablet layout, BattlEye status, v1.2.0 version history) and copied to `D:\AthenaRemastered-Workshop-v1.2.0\workshop-description-v1.2.0.txt` so the owner can paste it back on the Workshop page (Edit title & description).
+- Pending:
+  - the signed `athena.pbo` and `.bisign` back on D: → rebuild the GitHub release zip and replace the draft asset
+  - merge AR #10 / Web2 #11
+  - publish the GitHub release (tag `v1.2.0`)
+
 ### 2026-11-22 — release: v1.2.0 Workshop package on D:
 - Release docs (commit `ba2cf17`):
   - `CHANGELOG.md`: `[1.2.0] - 2026-11-22`, with the live-test fixes (shots, crew labels, MLRS impact, silhouettes, status box, header label), Known Limitations and BattlEye status (DLL unchanged)
