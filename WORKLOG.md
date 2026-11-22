@@ -25,6 +25,11 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - `dotnet build "Athena Remastered.sln"` resolved `Backend\AthenaRemastered.Server.csproj` at the new path, but failed with `NETSDK1045`: this machine only has .NET SDK 8.0.428, and AR targets net9.0. Not caused by the move. Installing the .NET 9 SDK is a pending owner decision.
   - `Frontend`: `npm ci` + `npm run build` passed.
   - No untracked files after the build.
+  - Owner approved installing the .NET 9 SDK: `winget install Microsoft.DotNet.SDK.9` → 9.0.321 (side by side with 8.0.428). `dotnet build "Athena Remastered.sln" -c Release` → **Build succeeded, 0 warnings, 0 errors** at the new layout. No untracked files after the build.
+- Owner report: the tablet (iPad Safari) and the desktop browser aren't always in sync; Chrome does better than Safari. Candidate causes, to verify:
+  - projectile timing compares the server timestamp `ev.at` with the client clock `Date.now()`, so iPad clock skew shifts or hides tracks
+  - Safari throttles WebSockets/SignalR and timers more aggressively when the tab or screen is inactive
+  - Added to the backlog.
 
 ### 2026-11-22 — Live test findings (owner, AR v1.1.6 from Steam Workshop, Malden)
 - **Startup map:** the backend auto-loads the last-used cached world in the `GameStateService` constructor (`LoadCachedWorld()`), so the UI shows Malden while Arma is still in the main menu, which looks like a stuck game. Planned: drop the auto-load and show the shared core's welcome screen.
@@ -43,7 +48,8 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Backlog
 
-- [ ] Install the .NET 9 SDK on the dev machine (owner decision) so the backend builds locally.
+- [x] Install the .NET 9 SDK on the dev machine (done 2026-11-22, 9.0.321).
+- [ ] Safari vs Chrome sync drift on tablets. Projectile timing should not depend on the client clock: compute a server-clock offset or use server-relative times. Check SignalR reconnect/keep-alive behaviour on iOS Safari.
 - [ ] Adopt the shared UI core from Web2 with an AR adapter (SignalR) and `appConfig` (`landmaskRowOrder: 'north-first'`).
 - [ ] Backend: drop the startup world auto-load.
 - [ ] SQF: main-menu guard in `init.sqf`.
