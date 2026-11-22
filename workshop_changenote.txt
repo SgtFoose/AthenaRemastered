@@ -1,40 +1,24 @@
-## v1.1.6 — Major Feature Update + Stability Pass
+v1.2.0 - New map look from Athena Web 2 + fixes
 
-### New Features
+New
+- Map rendering from Athena Web 2: classic Athena colours, smoothed coastlines and contour lines, airport surfaces, tree markers and the classic Athena vehicle silhouettes
+- Collapsible sidebars (< and > buttons) and a tablet layout
+- I-TGT target capture: press T or the middle mouse button (SAVE TGT on a tablet) to store a target
+- Follow Player switches off when you pan or zoom yourself
 
-- Active Lazes: live laser designator points on the map
-- Projectile Tracking: live shot paths with ETA labels
-- Forest rendering pipeline added
-- New layer toggles: Forest Overlay and Trees
-- Follow Active Player mode added
-- Location X/Y coordinates added in UI
-- Mouse X/Y coordinates added on map
-- Embedded .NET 9 runtime in AthenaRemastered.Server.exe (self-contained)
-- Crash logging added for faster issue diagnosis
+Fixes
+- No map while Arma is in the main menu or the editor (welcome screen until a mission runs)
+- Exported maps are kept in Documents\AthenaRemastered\MapCache, so they are not exported again after an update (existing exports are copied over automatically)
+- Forest overlay no longer far too dense; with an Athena Desktop export it matches Athena Web 2
+- Every shot appeared twice in Recent Shots
+- Crew labels showed "P:" for everyone; they now show D: / G: / C:
+- Drones, turrets and radars no longer show as a large tilted rectangle
+- M5 Sandstorm / artillery: the projectile path uses the real impact point and time of flight after the first impact
+- "Loaded from cache" box disappears after a few seconds; version label no longer cut off
 
-### Fixes and Improvements
+Known limitations
+- Without a laze, the first artillery/rocket shot of a fire mission is still a fixed-range guess (real in-flight tracking is planned)
+- Map styles Ground and Pilot are being reworked
 
-- iPad/tablet export status UI scaling fixed
-- Ground and Pilot map style rendering fixed
-- Contour rendering fixed
-- Roads toggle no longer affects objects/structures
-- Waypoints no longer clear when a unit dies
-- Steerable parachute icon fixed
-- Render status fields updated and improved
-- Follow mode reliability improved for active unit switches
-- Tracking and display workflows are aligned for all visible sides (WEST/EAST/GUER/CIV)
-
-### BattlEye Status
-
-- BattlEye whitelist filing submitted for the DLL build
-- Workaround is prepared for users while allowlisting is pending
-
-### Screenshots
-
-New v1.1.6 screenshots have been added, including:
-
-- Active Lazes and Projectile Tracking
-- Forest Overlay
-- Map Style Ground and Pilot
-- Mouse Coordinates
-- Objects Rendering and Trees Rendering
+BattlEye
+- The extension DLL is unchanged and not allowlisted: use -noBE for singleplayer / LAN

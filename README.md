@@ -21,7 +21,7 @@
 
 
 
-Athena Remastered v1.1.6 is a major feature and stability release. It adds Active Lazes, Projectile Tracking, Who's Shooting, forest rendering controls, Follow Active Player, embedded .NET 9 in the server EXE, and broad UI/rendering fixes across map styles and overlays. See [v1.1.6 feature overview](docs/v1.1.6-preview.md) for highlights and screenshots.
+Athena Remastered v1.2.0 brings the map rendering of Athena Web 2 to Athena Remastered: classic Athena colours, smoothed coastlines and contours, the classic vehicle silhouettes, I-TGT target capture and a tablet layout. Exported maps are now kept across updates, the forest overlay matches Athena Desktop, and duplicate shots and crew labels are fixed. See [CHANGELOG.md](CHANGELOG.md) for details. Previous release: [v1.1.6 feature overview](docs/v1.1.6-preview.md).
 
 ![Athena Remastered Active Lazes and Projectile Tracking](Images/Athena%20Remastered%20Active%20Lazes%20and%20Projectile%20Tracking.png)
 
@@ -96,7 +96,7 @@ The easiest way to get started:
 5. Launch Arma 3 with the mod enabled (via Arma 3 Launcher or `-mod=@AthenaRemastered`)
 6. Start a mission — the map will populate automatically
 
-> **BattlEye Status (v1.1.6):** DLL-based sessions still require `-noBE` for singleplayer/LAN until the 1.1.6 extension build is allowlisted.
+> **BattlEye Status (v1.2.0):** the extension DLL is not allowlisted (unchanged since v1.1.5). DLL-based sessions require `-noBE` for singleplayer/LAN.
 >
 > **In singleplayer/LAN:** Launch with `-noBE` to disable BattlEye for development and testing.
 >

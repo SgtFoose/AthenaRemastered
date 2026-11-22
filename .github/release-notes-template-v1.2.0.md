@@ -65,11 +65,12 @@ Only download Athena Remastered from this GitHub Releases page or the Steam Work
 
 ### New map look
 
-- Map rendering from Athena Web 2: classic Athena colours, smoothed coastlines and contour lines, airport surfaces, tree markers, vehicle icons and NATO markers
+- Map rendering from Athena Web 2: classic Athena colours, smoothed coastlines and contour lines, airport surfaces, tree markers, and the classic Athena vehicle silhouettes for every vehicle
 - Sidebars can be collapsed with the `<` / `>` buttons, and there is a tablet layout
 - I-TGT target capture: press **T** or the middle mouse button (or **SAVE TGT** on a tablet) to store a target; the right panel lists your targets
 - Follow Player switches off automatically when you pan or zoom yourself
 - Flat icons for the Kills and Recent Shots lists
+- The "Loaded from cache" box disappears after a few seconds
 
 ### Fixes
 
@@ -77,9 +78,13 @@ Only download Athena Remastered from this GitHub Releases page or the Steam Work
 - Exported maps are kept in `Documents\AthenaRemastered\MapCache`, so they're no longer exported again after an update. Existing exports are copied over automatically.
 - The forest overlay is no longer far too dense. With an Athena Desktop export it matches Athena Web 2 exactly.
 - Every shot appeared twice in Recent Shots
-- Drone, turret and radar markers no longer show as a large tilted rectangle; crew labels show the real seat (for example `G:` for drone gunners)
+- Crew labels showed "P:" for everyone; they now show the real seat (D: driver, G: gunner, C: commander)
+- Drones, turrets and radars no longer show as a large tilted rectangle
+- M5 Sandstorm / artillery: after impact, the projectile path jumps to the real impact point and time of flight, and follow-up shots in the same direction use it
+- The version label in the sidebar header is no longer cut off
 
 ## Known Limitations
 
 - BattlEye: use `-noBE` (singleplayer / LAN / servers without BattlEye)
-- Projectile tracking and lazes work as in v1.1.6; an improved version is planned
+- Projectile tracking with a laze works well. Without a laze, the first shot of a fire mission is still a fixed-range guess; real in-flight tracking is planned.
+- Map styles Ground and Pilot are being reworked
