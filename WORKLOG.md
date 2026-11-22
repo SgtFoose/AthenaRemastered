@@ -4,6 +4,22 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — release: v1.2.1 published (GitHub + Steam Workshop)
+- PR #14 merged (`9d774cf`).
+- Signing: the first `.bisign` the owner brought (16:34) was the v1.2.0 signature, older than the v1.2.1 PBO (20:01), so it was caught by its timestamp. After re-signing: `.bisign` 20:15. PBO hash on the stick = the release build.
+- **GitHub Release v1.2.1** published from the converted v1.2.0 draft (v1.2.0 never got a GitHub release because it did not start in missions):
+  - tag `v1.2.1` = `main` `9d774cf`, Latest
+  - asset `AthenaRemastered-v1.2.1.zip` 49.5 MB, SHA256 `8B575A70ECC09001BE02A16BA9DF404FF6AB2FE5449687A2A05D4AE50D1A4A73`, which equals the asset digest
+  - notes from `.github/release-notes-template-v1.2.1.md`
+- **Steam Workshop** item 3687225607 updated with the Publisher ("The item was successfully published", 113.8 MB). Six cropped release screenshots put on the stick for the Workshop gallery. (The stick was gone when the trimmed description was ready; the owner takes it from GitHub after the merge.)
+- Owner feedback: the Publisher description field only fits up to the v1.2.0 history (Steam limit 8000 characters; `workshop_description.txt` was 11,110). Fix (branch `docs/workshop-description-limit`):
+  - version history = last two versions + CHANGELOG link
+  - "How It Works" corrected (it described a DLL-free pipeline that does not exist)
+  - BattlEye text de-duplicated
+  - v1.2.0 block shortened
+  - result: 7172 characters, Links & Credits included again
+  - `CLAUDE.md` release checklist: signing (Reset list, timestamp check), GitHub Release steps, and the 8000-character Workshop rule
+
 ### 2026-11-22 — release: v1.2.1 hotfix prepared
 - The owner approved the release after the live test. Not tested live: reconnect after the tablet screen was off (low risk).
 - PR #13 had been merged with only the first perf commit. The later commits (init fix, tablet clock/reconnect, M5, test logs) were rebased onto `main` as branch `release/v1.2.1` (clean rebase, no conflicts).

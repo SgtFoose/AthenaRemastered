@@ -34,17 +34,10 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 
 [h1]How It Works[/h1]
 
-Athena Remastered runs a lightweight local server alongside Arma 3.
-
-The project is transitioning from a C++ extension pipeline to a DLL-free pipeline:
-[list]
-[*] In-game SQF scripts collect mission/world/frame/event data on a schedule
-[*] An external companion bridge service forwards telemetry to the local Athena backend
-[*] Backend streams updates to browsers via WebSockets
-[/list]
+The mod's scripts collect mission data in Arma 3 and send it through a small extension to a local server, which streams it live to every browser on your network.
 
 [code]
-Arma 3 SQF → Bridge Service → Local Web Server → Your Browser
+Arma 3 (mod) → Local Server → Your Browser / Tablet
 [/code]
 
 No external servers. No cloud. Everything stays on your machine or local network.
@@ -62,12 +55,7 @@ No external servers. No cloud. Everything stays on your machine or local network
 [*] [b]Start a mission[/b] — the map populates automatically!
 [/olist]
 
-[b]BattlEye Status:[/b]
-[list]
-[*] [b]v1.2.1:[/b] The extension DLL is not allowlisted (unchanged since v1.1.5). Use [b]-noBE[/b] for singleplayer/LAN sessions.
-[*] [b]Workaround (now):[/b] Use [b]-noBE[/b] launch flag for singleplayer/LAN sessions.
-[*] [b]Future (DLL-free):[/b] A migration to SQF + external bridge is planned, eliminating the DLL dependency.
-[/list]
+[b]BattlEye:[/b] the extension DLL is not allowlisted. Start Arma with [b]-noBE[/b] (singleplayer / LAN / servers without BattlEye).
 
 [b]Do not combine with Bus's original Athena mod:[/b] load either [i]Athena - An Arma 2nd Screen Application[/i] (for Bus's Athena Desktop / Athena Web 2) or Athena Remastered, not both at the same time. They share an internal addon name and get in each other's way.
 
@@ -97,8 +85,7 @@ Athena Remastered works on [b]every Arma 3 map[/b] — vanilla or modded. Terrai
 [*] Arma 3 (Steam)
 [*] Windows 10/11
 [*] Any modern web browser (Chrome, Firefox, Edge, Safari)
-[*] [b]Current (v1.2.0):[/b] BattlEye disabled (use [b]-noBE[/b] flag for LAN/singleplayer); the extension DLL is not allowlisted
-[*] [b]Future:[/b] No BattlEye workaround needed (DLL-free architecture planned)
+[*] BattlEye off ([b]-noBE[/b])
 [/list]
 
 [hr][/hr]
@@ -145,79 +132,13 @@ These settings are pushed automatically from the mission to all connected browse
 
 [b]v1.2.0[/b] — November 22, 2026
 [list]
-[*] New map look from Athena Web 2: classic Athena colours, smoothed coastlines and contour lines, airport surfaces, tree markers and the classic vehicle silhouettes
-[*] Collapsible sidebars and a tablet layout
-[*] I-TGT target capture (T / middle mouse button / SAVE TGT)
-[*] Follow Player switches off when you pan or zoom yourself
-[*] No map while Arma is in the main menu or the editor
-[*] Exported maps are kept in Documents\AthenaRemastered\MapCache and are no longer exported again after an update
-[*] Forest overlay no longer far too dense; with an Athena Desktop export it matches Athena Web 2
-[*] Fixed every shot appearing twice in Recent Shots
-[*] Fixed crew labels showing "P:" for everyone
-[*] M5 Sandstorm / artillery: projectile paths use the real impact point and time of flight after the first impact
-[*] Known limitations: without a laze, the first artillery/rocket shot is still a fixed-range guess; Ground/Pilot map styles are being reworked
+[*] New map look from Athena Web 2: classic Athena colours, smoothed coastlines and contours, airport surfaces, trees and vehicle silhouettes
+[*] Collapsible sidebars, tablet layout and I-TGT target capture (T / middle mouse / SAVE TGT)
+[*] Exported maps are kept across updates (Documents\AthenaRemastered\MapCache)
+[*] Forest overlay matches Athena Desktop / Athena Web 2
 [/list]
 
-[b]v1.1.6[/b] — March 21, 2026
-[list]
-[*] Added Active Lazes live map markers for laser designation awareness
-[*] Added Projectile Tracking with predicted flight paths and ETA labels
-[*] Added forest rendering pipeline and separate Forest Overlay/Trees toggles
-[*] Added Follow Active Player mode
-[*] Added location X/Y coordinates and live mouse-position X/Y readout
-[*] Embedded .NET 9 runtime in AthenaRemastered.Server.exe (self-contained server)
-[*] Added crash logging for startup/runtime issue diagnostics
-[*] Fixed iPad/tablet export-status panel scaling
-[*] Fixed Ground and Pilot map style rendering
-[*] Fixed contour rendering
-[*] Fixed roads toggle affecting objects/structures
-[*] Fixed waypoint clearing after a unit dies
-[*] Fixed steerable parachute icon
-[*] Updated render status fields
-[*] Tracking and display workflows are aligned for all visible sides (WEST/EAST/GUER/CIV)
-[*] BattlEye whitelist filing submitted; workaround prepared while allowlisting is pending
-[/list]
-
-[b]v1.1.5[/b] — March 21, 2026
-[list]
-[*] BattlEye allowlist request submitted for AthenaServer_x64.dll
-[*] Submission hash frozen in release package: 3DE7F325D7B75A8BB3665C97C8DABBC2C7FD409462071BCB69462D1137D1EE02
-[*] Release/version metadata updated across frontend/backend/mod files to 1.1.5
-[*] Workshop docs updated with current BattlEye status and workaround guidance
-[/list]
-
-[b]v1.1.4[/b] — March 20, 2026
-[list]
-[*] All four sides (WEST, EAST, GUER, CIV) are now visible by default — no mission params needed
-[*] Default unit export scope is now All Units (all sides), replacing Player Side only
-[*] Added mission params for admins to disable specific sides: ATH_showEast, ATH_showGuer, ATH_showCiv
-[*] Fixed mission param parsing so params are only read when the class exists in description.ext
-[/list]
-
-[b]v1.1.3[/b] — March 20, 2026
-[list]
-[*] Packaged server now accepts LAN connections by default for tablets and phones on the same network
-[*] Startup output now shows usable local and LAN addresses
-[*] Workshop instructions now include the exact server folder path and hidden-folder steps for Windows users
-[/list]
-
-[b]v1.1.0[/b] — March 18, 2026
-[list]
-[*] Welcome screen with setup instructions for new users
-[*] Improved DLL performance — persistent HTTP connections (eliminates 2-second delays)
-[*] Server works correctly when launched from any directory
-[*] Connection status indicator
-[*] Rebuilt frontend and backend with latest fixes
-[*] Re-signed PBO with fresh key pair
-[/list]
-
-[b]v1.0.0[/b] — March 18, 2026
-[list]
-[*] Initial Steam Workshop release
-[*] Full real-time tracking: units, vehicles, groups, events
-[*] Terrain rendering: roads, forests, contours, locations, buildings
-[*] Self-contained server executable
-[/list]
+Older versions: see the [url=https://github.com/SgtFoose/AthenaRemastered/blob/main/CHANGELOG.md]full changelog on GitHub[/url].
 
 [hr][/hr]
 
