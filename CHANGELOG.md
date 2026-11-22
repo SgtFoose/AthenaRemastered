@@ -24,6 +24,7 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - The map cache moved to `Documents\AthenaRemastered\MapCache` (override: `ATHENA_MAPCACHE_DIR`), so a cached world is reused after updates, test builds or moving the server EXE. An existing `MapCache` folder next to the EXE is copied over automatically on first start.
 
 ### Fixed
+- Forest overlay was far too dense: when Athena Desktop has exported the world (`Documents\Athena\Maps\<world>\Forests.txt`), AR now shows Bus's own 16 m forest cells (identical to Athena Web 2). Without that cache, AR's in-game sampling no longer counts a single tree within 75 m as forest (only the ≥5 / ≥15 tree levels are shown).
 - Worlds were exported again after every server update or new install folder, because the cache lived next to the EXE
 - Vehicle NATO markers (drones, static turrets, radars, Mk41 VLS, Mk45 Hammer) no longer rotate as a large tilted rectangle; crew labels show the real seat (e.g. `G:` for UAV-AI gunners instead of `P:`)
 

@@ -4,6 +4,21 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Forest overlay: Bus 16 m cells from the Athena Desktop cache, no single-tree cells
+- **Owner report (screenshots: Web2 on Tanoa vs AR v1.2.0-test on Malden):** AR's forest overlay is way too dense compared to Web2. Also "two finger pinch zoom is too slow" (device to be clarified: trackpad pinch vs tablet touch; same Leaflet settings in both apps via the shared core: `zoomSnap 0.1`, `zoomDelta 0.25`, `wheelPxPerZoomLevel 80`).
+- **Cause:**
+  - AR's `getForests.sqf` samples 150 m cells and counts trees within 75 m: level 1 = ≥1, 2 = ≥5, 3 = ≥15. The backend dropped only level 0, and the core draws every level below 3 as light forest. Almost every cell with one tree was painted green (Malden: 2512 of ~7300 cells).
+  - Web2 instead shows Bus's own `Forests.txt` (16 m light/heavy cells).
+- **Fix** (branch `fix/forest-desktop-cache`, stacked on `fix/persistent-map-cache`):
+  - `Backend/Services/StaticAthenaCacheService.cs`: `LoadDesktopForests()` parses `Forests.txt` exactly like Web2's bridge: 16 m cells, `CellsLight` → level 2, `CellsHeavy` → level 3 (heavy wins), Y = worldSize − (yIdx + 1) × 16.
+  - `Backend/Services/GameStateService.cs`: `ResolveDisplayForests()` prefers the Desktop cells and otherwise filters the in-game export to level ≥ 2 (`MinInGameForestLevel`). It is used when loading from MapCache and at `PutForestsComplete()`; the raw export is still cached unchanged.
+  - Docs: `CHANGELOG.md` (1.2.0 Fixed), `CLAUDE.md` (forest source).
+- **Validation:**
+  - `dotnet build Backend -c Release` passed (0 warnings).
+  - Simulation with `ATHENA_MAPCACHE_DIR` and a temporary fake Desktop `Forests.txt` (removed afterwards):
+    - `deskworld` (1024 m) → `sampleSize=16`, cells `(0,1008,L2) (16,1008,L3) (32,928,L2) (48,960,L3)`, as expected
+    - `filterworld` (MapCache only, levels 1/2/3/1) → `sampleSize=150`, cells `(150,0,L2) (300,0,L3)`
+
 ### 2026-11-22 — Map cache in Documents: no re-export after updates or new install folders
 - **Owner report (photo, old build `299e25b`):** "Exporting world data…" again on game start (Roads 250…, Trees 3500…, Locations 122 OK). Request: both tools must check for cached maps when the game starts and not trigger a new render every time.
 - **Findings:**

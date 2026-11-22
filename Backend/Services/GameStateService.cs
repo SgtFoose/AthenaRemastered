@@ -308,6 +308,37 @@ public class GameStateService
 
     // ── World / geometry PUT handlers ────────────────────────────────────────
 
+    /// <summary>
+    /// Minimum in-game forest level that counts as forest when no Athena Desktop
+    /// cache is available. <c>getForests.sqf</c> levels are tree counts within a
+    /// 75 m radius per 150 m cell: 1 = ≥1 tree, 2 = ≥5, 3 = ≥15. Level 1 marked
+    /// almost every cell with a single tree as forest (far denser than Web2 / Bus
+    /// Desktop, owner report on Malden), so only 2 (light) and 3 (heavy) are kept,
+    /// matching Bus's two forest levels.
+    /// </summary>
+    private const int MinInGameForestLevel = 2;
+
+    /// <summary>
+    /// Chooses the forest data shown to the frontend for a world:
+    /// 1. Athena Desktop's <c>Forests.txt</c> (Bus-exact 16 m cells, identical to
+    ///    Athena Web 2) when the Desktop cache has the world;
+    /// 2. otherwise AR's own in-game sampling, without level-1 cells.
+    /// The raw in-game export stays in AR's MapCache unchanged; this runs on load.
+    /// </summary>
+    /// <param name="worldName">Arma world name.</param>
+    /// <param name="worldSize">World size in metres (for the Desktop Y-flip).</param>
+    /// <param name="exported">AR's in-game forest export (from MapCache or a fresh export).</param>
+    private ForestsData ResolveDisplayForests(string worldName, double worldSize, ForestsData exported)
+    {
+        var desktop = _staticCache.LoadDesktopForests(worldName, worldSize);
+        if (desktop != null) return desktop;
+        return new ForestsData
+        {
+            SampleSize = exported.SampleSize,
+            Cells = exported.Cells.Where(c => c.Level >= MinInGameForestLevel).ToList(),
+        };
+    }
+
     public void PutWorldInfo(string nameDisplay, string nameWorld, string author,
         double sizeWorld, double forestMin, double offsetX, double offsetY,
         double centerX, double centerY)
@@ -330,7 +361,7 @@ public class GameStateService
         if (_cache.HasCache(nameWorld))
         {
             var cachedRoads     = _cache.LoadRoads(nameWorld);
-            var cachedForests   = _cache.LoadForests(nameWorld);
+            var cachedForests   = ResolveDisplayForests(nameWorld, sizeWorld, _cache.LoadForests(nameWorld));
             var cachedLocations = _cache.LoadLocations(nameWorld);
             bool hasTrees = _cache.HasTreesCache(nameWorld);
             var cachedTrees = hasTrees ? _cache.LoadTrees(nameWorld) : [];
@@ -592,8 +623,17 @@ public class GameStateService
         }
         OnExportStatus?.Invoke(GetExportStatus());
         var data = new ForestsData { SampleSize = _forestSampleSize, Cells = snapshot };
-        if (World != null) _cache.SaveForests(World.NameWorld, data);
-        OnForestsComplete?.Invoke(data);
+        if (World == null) { OnForestsComplete?.Invoke(data); return; }
+        // Cache the raw export; show the resolved data (Desktop 16 m cells or filtered levels).
+        _cache.SaveForests(World.NameWorld, data);
+        var display = ResolveDisplayForests(World.NameWorld, World.Size, data);
+        lock (_geoLock)
+        {
+            _forests.Clear();
+            _forests.AddRange(display.Cells);
+            _forestSampleSize = display.SampleSize;
+        }
+        OnForestsComplete?.Invoke(display);
     }
 
     public void PutLocation(string type, string name, double posX, double posY,
