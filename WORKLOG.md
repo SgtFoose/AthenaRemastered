@@ -24,6 +24,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - Athena connects; the iPad shows Malden live with 15 groups, 66 units and 15 vehicles
   - FPS 17 / GPU 23% / CPU 63%, vs. 17 FPS / CPU 76% without Athena: no measurable FPS cost with 66 units
   - the init fix and the 4 Hz throttle are confirmed
+  - one `srifle_LRR_camo_F` shot = exactly **one** Recent Shots entry: the first live test with the new SQF actually loaded; the duplicate-shot fix is confirmed
 
 ### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
 - A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
