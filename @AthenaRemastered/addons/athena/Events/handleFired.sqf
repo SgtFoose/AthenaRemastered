@@ -99,7 +99,19 @@ if (_turretLen > 0.001) then {
 };
 
 private _weaponText = toLower format ["%1 %2 %3", _weapon, _ammo, _magazine];
-private _isGuided = ((_weaponText find "cruise") >= 0) || {(_weaponText find "missile") >= 0} || {(_weaponText find "sam") >= 0} || {(_weaponText find "at") >= 0};
+// Guided vs. indirect fire is decided from the ammo config, not from substrings.
+// Before 1.2.0 any name containing "at" counted as guided, so the M5 Sandstorm's
+// "rockets_230mm_GAT" was treated as a guided missile: the impact tracker below
+// never ran, no fired_impact was sent and the map never learned the real impact
+// point or time of flight (live test, Malden, 2026-11-22).
+// - artilleryLock = 1: ammo usable by the Artillery Computer (shells, MLRS rockets,
+//   and the Mk41 VLS cruise missile)
+// - irLock / laserLock / airLock / nvLock / manualControl: seeker or guidance
+private _ammoCfg = configFile >> "CfgAmmo" >> _ammo;
+private _isArtilleryAmmo = getNumber (_ammoCfg >> "artilleryLock") > 0;
+private _hasSeeker = (getNumber (_ammoCfg >> "irLock") > 0) || {getNumber (_ammoCfg >> "laserLock") > 0} || {getNumber (_ammoCfg >> "airLock") > 0} || {getNumber (_ammoCfg >> "nvLock") > 0} || {getNumber (_ammoCfg >> "manualControl") > 0};
+// Cruise missiles use the Artillery Computer but are guided, so they stay guided.
+private _isGuided = ((_weaponText find "cruise") >= 0) || {!_isArtilleryAmmo && {_hasSeeker || {(_weaponText find "missile") >= 0}}};
 private _allowTargetSteer = _isGuided;
 private _debugFired = missionNamespace getVariable ["ATHENA_DEBUG_FIRED", true];
 private _maxRange = 8000;
@@ -291,6 +303,7 @@ if (_debugFired) then {
 // and compute an accurate ETA for the linger phase.
 // Only track unguided indirect-fire weapons to avoid spawning a thread per infantry bullet.
 private _isIndirectFire = !_isGuided && (
+        _isArtilleryAmmo ||
         (_weaponText find "mortar")    >= 0 ||
         (_weaponText find "shell")     >= 0 ||
         (_weaponText find "amos")      >= 0 ||

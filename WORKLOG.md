@@ -14,6 +14,13 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - **Not OK:** unguided rocket/artillery fire without a laze is still way off. Malden, battery at Saint Martin, firing north towards hill 344 north of Dorres. The in-game artillery computer showed range `2483` m and ETA 28 s. AR showed `HDG ETA 31s` with the predicted path running past Blanches to roughly twice that distance.
     - Cause (`Frontend/src/extensions/projectileTracking.tsx`): without a laze, waypoint or enemy in the fire direction, `estimateTarget` falls back to source `heading`. That places the impact at the profile's fixed `rangeM` along the fire azimuth (rockets 5000 m, artillery 9000 m, ship cannon 14000 m). The ETA comes from a fitted curve (`ballA * d^ballB`). Only after a shell lands does `fired_impact` correct later shots in the same direction, so the first shot of a fire mission is always wrong.
     - Planned fix: projectile tracking v2 (see backlog). Not part of this branch.
+    - Owner data for this shot. M5 Sandstorm MLRS, `230 mm Rocket`, mode `2200m-2900m`. Artillery Computer: DIST 2411, DIR 17, ALT 140, ETA 28. Actual impact X 5057.54 Y 7858.39 Z 416.0, actual time of flight 23 s. AR showed ETA 31 s and drew the path to the 5000 m `HDG` point near Saint Jean.
+    - Second bug found: `handleFired.sqf` treated any name containing "at" as guided. `rockets_230mm_GAT` therefore counted as a guided missile, the impact tracker never ran, and no `fired_impact` reached the map. Without it, even later rockets of the same fire mission were never corrected.
+    - Fixed in this branch:
+      - guided = "cruise" in the name, or (no `artilleryLock` and (seeker via `irLock`/`laserLock`/`airLock`/`nvLock`/`manualControl`, or "missile" in the name))
+      - indirect fire = not guided and (`artilleryLock` = 1 or the old name list)
+      - laser targets are still used for unguided fire through the frontend's `targetFromLazes`
+      - test PBO repacked to `C:\AthenaRemastered-test` and `D:\@AthenaRemastered` (server unchanged)
 - **Duplicate shots.** Backend → SignalR → frontend is a single path: one PUT gives one `Fired` broadcast, and `useAthenaHub` registers `conn.on('Fired')` once, without StrictMode. The duplicate comes from SQF: for on-foot shots, both the unit's `FiredMan` and its `Fired` handler run. The 1.2.0 guard (`setVariable` on the projectile) didn't stop it live. Fix:
   - `Mission/getUnits.sqf`: only `FiredMan` is added. It covers on-foot and vehicle-seat shots.
   - `Mission/getVehicles.sqf`: the vehicle `Fired` handler skips gunners that carry `ATHENA_EVENTS`, since their own `FiredMan` reports the shot. Gunners Athena doesn't track are still reported.
