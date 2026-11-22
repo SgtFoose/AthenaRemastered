@@ -4,6 +4,19 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — 1.2.1: tablet projectile tracking (client clock), reconnect, M5 impact
+- Owner: the PC browser shows every projectile, but the tablet needs F5 and often still shows none live; the Fire Control popup is missing.
+- Headless check on this PC (server and browser share a clock): a simulated `Sh_155mm_AMOS` shot shows the track and the Fire Control panel (`Crew FREE HDG 57s`). The panel works; the tablet problem is clock-related.
+- **Cause 1, client clock:** `projectileTracking.tsx` uses `Date.parse(ev.at)` (server clock) against `Date.now()` (device clock). A tablet clock a few seconds off makes every track look expired or not yet fired; the panel stays empty because it lists active tracks. This was already a backlog item (Safari vs Chrome drift).
+- **Cause 2, reconnect:** the default `withAutomaticReconnect()` (0/2/10/30 s, then give up) left tablets disconnected after the screen had been off, until F5.
+- Fixes (`Frontend/src/adapter/useAthenaHub.ts`, AR-only adapter, no core change):
+  - `stampReceived`: `Fired` / `FiredImpact` get this device's receive time as `at`
+  - endless reconnect policy (0, 1, 2, 4, 8 s, then every 10 s)
+  - `onclose` restarts the start loop
+  - `visibilitychange` reconnects as soon as the page is visible again
+- **M5 impact:** `handleFired.sqf` also checks `CfgWeapons >> weapon >> artilleryLock`, plus a `230mm` name fallback, so `R_230mm_HE` starts the impact tracker.
+- `CHANGELOG.md` 1.2.1 updated. Validation: `eslint` (useAthenaHub) clean, `tsc -b` OK.
+
 ### 2026-11-22 — CRITICAL: v1.2.0 never starts in a mission (main-menu guard) + Bus mod conflict
 - Perf live test: the server received no PUTs at all. The owner's RPTs (copied to the USB drive) show for **Workshop v1.2.0** and the perf test PBO, inside the real mission `Editor Athena Remastered v1.1.7.Malden`:
   - `Athena Init: context is3DEN=false mainMenu=true missionDisplay=false missionName=Editor%20Athena%20Remastered%20v1%2e1%2e7`
@@ -398,7 +411,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 ## Backlog
 
 - [x] Install the .NET 9 SDK on the dev machine (done 2026-11-22, 9.0.321).
-- [ ] Safari vs Chrome sync drift on tablets. Projectile timing should not depend on the client clock: compute a server-clock offset or use server-relative times. Check SignalR reconnect/keep-alive behaviour on iOS Safari.
+- [x] (2026-11-22, 1.2.1: events stamped with the device receive time) Safari vs Chrome sync drift on tablets. Projectile timing should not depend on the client clock: compute a server-clock offset or use server-relative times. Check SignalR reconnect/keep-alive behaviour on iOS Safari.
 - [x] Adopt the shared UI core from Web2 with an AR adapter (SignalR) and `appConfig` (`landmaskRowOrder: 'north-first'`) (branch `feat/adopt-shared-core`, pending the owner's live test).
 - [ ] Steam Workshop pages: align AR and Web2. Names differ ("Athena Remastered" vs "@AthenaWeb2"), Web2's tags are odd (Animation, Editor Extension, Equipment, Terrain; AR: Mechanics), and the description styles differ. Owner request 2026-11-22, screenshots from Arma 3 Publisher.
 - [ ] Optional: offline world picker for AR (`CAPABILITIES.worldPicker`) over AR's cached worlds.

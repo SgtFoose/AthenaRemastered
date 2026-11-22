@@ -14,6 +14,9 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - FPS loss during missions: live position updates ran on every frame, with one blocking call to the server per unit and vehicle. They now run at most 4 times per second, like Bus's original relay. Mission makers can change the interval with `missionNamespace setVariable ["ATHENA_UPDATE_INTERVAL", <seconds>]`.
 - The game froze while exporting a large map: the terrain-height export looped over every metre of the map to find a few thousand sample points. It now steps directly from sample to sample (same points).
 - Per-shot debug logging (`ATHENA_DEBUG_FIRED`) is now off by default
+- Tablets showed projectile tracks (and the Fire Control panel) late, never, or only after F5. Shot times now use the device's own receive time instead of the server clock, so a tablet clock that is a few seconds off no longer matters.
+- The connection to the server now keeps retrying after an interruption (for example the tablet screen going off) and reconnects as soon as the page is visible again. Previously it gave up after a few attempts until F5.
+- M5 Sandstorm rockets are now tracked to their impact point (the artillery check also looks at the weapon), so follow-up shots use the real impact point and time of flight
 
 Thanks to Mrakos for the performance analysis on the Steam Workshop.
 
