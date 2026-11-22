@@ -140,7 +140,7 @@ git clone https://github.com/SgtFoose/AthenaRemastered.git
 ### 2. Start the backend
 
 ```powershell
-cd AthenaRemastered/Backend
+cd Backend
 dotnet run -c Release
 ```
 
@@ -151,14 +151,14 @@ The backend starts on `http://localhost:5000`.
 Open a second terminal:
 
 ```powershell
-cd AthenaRemastered/Frontend
+cd Frontend
 npm install
 npm run dev
 ```
 
 The frontend starts on `http://localhost:5173`.
 
-> **Shortcut:** Run `.\AthenaRemastered\launch.ps1` to start both at once.
+> **Shortcut:** Run `.\launch.ps1` to start both at once.
 
 ### 4. Set up the Arma 3 mod
 

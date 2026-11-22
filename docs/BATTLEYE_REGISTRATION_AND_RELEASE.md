@@ -40,7 +40,7 @@ For DLL-free releases, skip registration steps and run the DLL-free verification
    - SHA256 hash
    - product version
    - source commit SHA
-   - helper command: `AthenaRemastered/tools/Get-AthenaDllMetadata.ps1`
+   - helper command: `tools/Get-AthenaDllMetadata.ps1`
 3. Prepare review package notes:
    - high-level feature summary
    - explicit statement that DLL is used through Arma `callExtension`

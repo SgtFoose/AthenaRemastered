@@ -1,5 +1,5 @@
 # publish.ps1 — Build a self-contained AthenaRemastered.Server.exe
-# Output: AthenaRemastered/publish/
+# Output: publish/ (repo root; the layout was flattened on 2026-11-22)
 #   AthenaRemastered.Server.exe  (single exe, no .NET runtime required)
 #   wwwroot/                     (built frontend)
 
@@ -65,15 +65,16 @@ if (Test-Path $MapCacheBackup) {
 Write-Host '[3/3] Copying frontend to all wwwroot targets ...' -ForegroundColor Yellow
 $FrontendDist = Join-Path $FrontendDir 'dist'
 
-# All known wwwroot locations that need the built frontend.
-# Discovered 2026-03: there are 5 active targets — missing any causes stale UI bugs.
+# All wwwroot locations that need the built frontend (missing one causes stale UI bugs).
+# Before the 2026-11-22 layout flatten there were 6 entries: the nested and
+# root copies of publish/ and @AthenaRemastered/ collapsed into one each, and
+# the old '..\..\@AthenaRemastered' entry pointed outside the repository.
+# Targets whose parent folder doesn't exist are skipped below.
 $WwwRoots = @(
-    $WwwRoot,                                                                    # AthenaRemastered/publish/wwwroot
-    (Join-Path $Root '@AthenaRemastered\Server\wwwroot'),                        # AthenaRemastered/@AthenaRemastered/Server/wwwroot
-    (Join-Path $Root '@Athena Web Remastered\Server\wwwroot'),                   # AthenaRemastered/@Athena Web Remastered/Server/wwwroot
-    (Join-Path $Root 'publish-single\wwwroot'),                                  # AthenaRemastered/publish-single/wwwroot
-    (Join-Path $Root '..\publish\wwwroot'),                                      # root-level publish/wwwroot
-    (Join-Path $Root '..\..\@AthenaRemastered\Server\wwwroot')                   # root-level @AthenaRemastered/Server/wwwroot
+    $WwwRoot,                                                                    # publish/wwwroot (published server)
+    (Join-Path $Root '@AthenaRemastered\Server\wwwroot'),                        # mod folder server (Workshop)
+    (Join-Path $Root '@Athena Web Remastered\Server\wwwroot'),                   # local compatibility alias (ignored)
+    (Join-Path $Root 'publish-single\wwwroot')                                   # single-file publish output
 )
 
 foreach ($target in $WwwRoots) {
