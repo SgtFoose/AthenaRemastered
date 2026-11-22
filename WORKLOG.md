@@ -16,6 +16,10 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - `visibilitychange` reconnects as soon as the page is visible again
 - **M5 impact:** `handleFired.sqf` also checks `CfgWeapons >> weapon >> artilleryLock`, plus a `230mm` name fallback, so `R_230mm_HE` starts the impact tracker.
 - `CHANGELOG.md` 1.2.1 updated. Validation: `eslint` (useAthenaHub) clean, `tsc -b` OK.
+- Live test of the full package `v1.2.0-test (4ca0486)` (server + UI + PBO; PC and iPad both show `4ca0486`):
+  - iPad without F5: M4 Scorcher track and Fire Control panel shown live (`NightHawk FREE HDG`); the client-clock fix is confirmed
+  - M4: after the first impact, shot 2's ETA matches the in-game Artillery Computer (2355 m, ETA 47 s), and the target is the real impact point (`4664,5294`) instead of the map-edge HDG guess; the impact correction is confirmed
+  - still open: M5 correction, reconnect after the tablet screen was off
 
 ### 2026-11-22 — CRITICAL: v1.2.0 never starts in a mission (main-menu guard) + Bus mod conflict
 - Perf live test: the server received no PUTs at all. The owner's RPTs (copied to the USB drive) show for **Workshop v1.2.0** and the perf test PBO, inside the real mission `Editor Athena Remastered v1.1.7.Malden`:
