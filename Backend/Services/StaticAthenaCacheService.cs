@@ -536,6 +536,70 @@ public class StaticAthenaCacheService
 
     // ── Discovery ────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Bus <c>GenerateForestGeometry</c>: Athena Desktop draws forest cells as
+    /// fixed 16×16 canvas units (canvas = world metres), so one cell = 16 m.
+    /// </summary>
+    public const double DesktopForestCellSize = 16.0;
+
+    /// <summary>
+    /// Reads Athena Desktop's <c>Forests.txt</c> for a world and converts it to
+    /// AR's <see cref="ForestsData"/> (same conversion as Athena Web 2's bridge,
+    /// <c>bridge/server.js</c> forests block):
+    ///   <c>{ CellsLight: [{ Cells: ["x,y", ...] }], CellsHeavy: [...] }</c>,
+    ///   x/y = 16 m cell indices, y counted from the north (canvas Y).
+    /// World Y (0 = south) of the cell's bottom edge = worldSize − (yIdx + 1) × 16.
+    /// Light cells get level 2, heavy cells level 3 (heavy wins on overlap), which
+    /// the shared core renders with Bus's light/heavy forest colours.
+    /// </summary>
+    /// <param name="worldName">Arma world name (folder lookup is case-insensitive).</param>
+    /// <param name="worldSize">World size in metres, needed for the Y-flip.</param>
+    /// <returns>Forest data, or null when there is no Desktop cache, no file, or no cells.</returns>
+    public ForestsData? LoadDesktopForests(string worldName, double worldSize)
+    {
+        if (worldSize <= 0) return null;
+        var dir = FindWorldDir(worldName);
+        if (dir == null) return null;
+        var file = Path.Combine(dir, "Forests.txt");
+        if (!File.Exists(file)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(file));
+            var cells = new Dictionary<(int, int), ForestCell>();
+            void AddBlocks(string prop, int level)
+            {
+                if (!doc.RootElement.TryGetProperty(prop, out var blocks) || blocks.ValueKind != JsonValueKind.Array) return;
+                foreach (var block in blocks.EnumerateArray())
+                {
+                    if (!block.TryGetProperty("Cells", out var list) || list.ValueKind != JsonValueKind.Array) continue;
+                    foreach (var token in list.EnumerateArray())
+                    {
+                        var parts = (token.GetString() ?? "").Split(',');
+                        if (parts.Length < 2
+                            || !int.TryParse(parts[0], out var xIdx)
+                            || !int.TryParse(parts[1], out var yIdx)) continue;
+                        cells[(xIdx, yIdx)] = new ForestCell
+                        {
+                            X = xIdx * DesktopForestCellSize,
+                            Y = worldSize - (yIdx + 1) * DesktopForestCellSize,
+                            Level = level,
+                        };
+                    }
+                }
+            }
+            AddBlocks("CellsLight", 2);
+            AddBlocks("CellsHeavy", 3);   // after light, so heavy overrides
+            if (cells.Count == 0) return null;
+            _log.LogInformation("Athena Desktop forests for '{World}': {Count} cells of {Size} m", worldName, cells.Count, DesktopForestCellSize);
+            return new ForestsData { SampleSize = DesktopForestCellSize, Cells = [.. cells.Values] };
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Failed to parse Forests.txt for '{World}'", worldName);
+            return null;
+        }
+    }
+
     public string? FindWorldDir(string worldName)
     {
         if (!Directory.Exists(AthenaBase)) return null;

@@ -113,6 +113,8 @@ Arma launch: `-mod=@AthenaRemastered -filePatching -noBE`.
 
 **AR map cache:** `%USERPROFILE%\Documents\AthenaRemastered\MapCache\{world}\` (`roads.json`, `trees.json`, `forests.json`, `locations.json`, `structures.json`, `elevations.json`, plus `last-world.txt`); override with `ATHENA_MAPCACHE_DIR`. `PutWorldInfo()` loads it and only queues exports for missing parts. Before 1.2.0 it lived in `MapCache\` beside the EXE; `MapCacheService` copies that legacy folder over once at startup.
 
+**Forests shown in the UI:** `GameStateService.ResolveDisplayForests()` prefers Athena Desktop's `Forests.txt` (`StaticAthenaCacheService.LoadDesktopForests`, 16 m cells, light = level 2, heavy = level 3, Y-flip `worldSize − (yIdx + 1) × 16`). Otherwise it uses AR's in-game 150 m sampling with level 1 dropped. The raw in-game export stays in AR's MapCache.
+
 **Athena Desktop cache:** `%USERPROFILE%\Documents\Athena\Maps\{world}\`, files `Objects.txt`, `Trees.txt`, `Roads.txt`, `Forests.txt`, `Locations.txt`, `Map.txt`, `Height/Z*.txt`. CanvasX = worldX, CanvasY = worldSize − worldY.
 
 **Debugging:** RPT at `%LOCALAPPDATA%\Arma 3\Arma3_x64_*.rpt`. Search `AthenaServer`, `Athena Init:`, `Athena Queue:`, `ATHENA_IMPACTDBG` (projectile impact tracker; on by default via `ATHENA_DEBUG_FIRED`).
