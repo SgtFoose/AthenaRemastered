@@ -19,6 +19,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - Validation:
   - a PowerShell replica of the old and new elevation loops gives identical point lists for 7 regions (incl. non-multiple start/stop and single-point regions)
   - the SQF itself needs a live test: an FPS comparison on a busy mission, plus a world export on a large map
+- Test PBO: `D:\AthenaRemastered-1.2.1-perf-test\athena.pbo` (unsigned, `-noBE`, with `TEST-INSTRUCTIONS.txt`). Owner approved the push: branch pushed, PR #13 (base `docs/readme-v1.2.0`, retargets to `main` after #12 merges). A draft English reply to the Workshop thread was handed to the owner.
 
 ### 2026-11-22 — docs: README Latest Release for v1.2.0 with owner photos
 - AR #11 and Web2 #12 merged; local `main` in both repos equals the published branch heads (`git diff` empty), and the merged branches were deleted.
