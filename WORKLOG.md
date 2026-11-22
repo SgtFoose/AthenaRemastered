@@ -4,6 +4,18 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Vehicle markers: upright NATO symbols, real crew seats (core sync) + test package
+- **Owner report (v1.2.0-test, Malden):** "vehicle icons look weird". They showed as large tilted blue rectangles with a dot, with crew labelled `P:`. Root cause is in the shared core (details in Web2's WORKLOG):
+  - the NATO `b_art` frame used for static naval turrets (Mk41 VLS, Mk45 Hammer) and SAM/AAA was rotated with the turret heading at 80 px
+  - crew prefixes ignored the `fullCrew` seat sent by `getVehicles.sqf`
+- Core sync from Web2 `94c4f28` (branch `fix/vehicle-nato-markers`, stacked on `fix/backend-startup-export-stale`, commit `a744c43`): `Frontend/src/core/components/AthenaMap.tsx` + `core-manifest.json`.
+- Validation: put-API simulation against the published `test (a744c43)` server showed upright 48 px markers with `G:` labels for the UAV-AI gunners.
+- **Test package:** `D:` no longer exists on this machine, so the package went to `C:\AthenaRemastered-test\`:
+  - `Server\` is a copy of `publish\`: the backend fixes + this core fix, label `test (a744c43)`
+  - `athena.pbo` packed with `pack-pbo.ps1` from `@AthenaRemastered/addons/athena`: Eden/main-menu guard, new map messages; unsigned, run with `-noBE`
+  - The tracked `@AthenaRemastered/Server/wwwroot` that `publish.ps1` rewrites was restored afterwards.
+- Owner photo afterwards: the header label `v1.2.0-test (299e25b)` still pushes "Donate" off screen. That is the old build from before the label fix (`299e25b`). The compact header label (`v1.2.0-test`) is in the new package (`test (a744c43)`), so there is nothing new to fix; the owner needs to run the new server.
+
 ### 2026-11-22 — Backend/SQF fixes: no startup world, stale mission expiry, honest map message, Eden/main-menu guard
 - PR #3 (version 1.2.0 + build label) merged by the owner as `eac69b7`. The test build on `D:` (`1.2.0-test (299e25b)`) matches `main`'s code (0 files differ).
 - **Owner live test of v1.2.0-test on Malden** (screenshot): new rendering works (coastline, contours, Bus colours, labels; forest semi-transparent). Remaining issues:
