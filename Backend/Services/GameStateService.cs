@@ -18,8 +18,50 @@ public class GameStateService
         _cache = cache;
         _staticCache = staticCache;
         _log = log;
-        // Auto-load last-used world from disk cache so the map renders without the game
-        LoadCachedWorld();
+        // No world is auto-loaded at startup (removed 2026-11-22): showing the
+        // last-used world while Arma was still in the main menu made users think
+        // the game was stuck. Geometry is loaded from the disk cache in
+        // PutWorldInfo() once a live mission reports its world.
+    }
+
+    /// <summary>
+    /// A mission counts as stale when no frame (<c>put updateend</c>) arrived for
+    /// this long, e.g. because the game was closed or the mission ended without
+    /// a clean shutdown. See <see cref="ExpireStaleMission"/>.
+    /// </summary>
+    public static readonly TimeSpan MissionStaleTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>UTC time of the last mission/frame received from the game.</summary>
+    private DateTime _lastFrameUtc = DateTime.MinValue;
+
+    /// <summary>
+    /// Clears the live mission when the game stopped sending frames for longer
+    /// than <see cref="MissionStaleTimeout"/>, and broadcasts an empty frame so
+    /// connected browsers return to their welcome screen instead of showing
+    /// stale units forever. Called periodically by <see cref="BroadcastService"/>.
+    /// </summary>
+    /// <param name="nowUtc">Current UTC time (injected for testability).</param>
+    /// <returns>True when a mission was expired.</returns>
+    public bool ExpireStaleMission(DateTime nowUtc)
+    {
+        if (Mission == null || nowUtc - _lastFrameUtc <= MissionStaleTimeout) return false;
+
+        _log.LogInformation("No game frames for {Seconds:F0}s; expiring mission '{Mission}' on '{World}'",
+            (nowUtc - _lastFrameUtc).TotalSeconds, Mission.Name, Mission.World);
+        Mission = null;
+        World = null;
+        _groups.Clear(); _units.Clear(); _vehicles.Clear(); _lazes.Clear();
+        lock (_deadUnitsLock) { _deadUnits.Clear(); }
+
+        // Drop export requests queued for the expired mission, so they aren't
+        // sent to the game later, and reset the export status to idle (otherwise
+        // browsers keep showing "Loading world data...").
+        while (_requests.TryDequeue(out _)) { }
+        lock (_exportStatusLock) { _exportStatus = new ExportStatus(); }
+        OnExportStatus?.Invoke(GetExportStatus());
+
+        OnFrame?.Invoke(BuildFrame());
+        return true;
     }
 
     // ── Live state ──────────────────────────────────────────────────────────
@@ -92,6 +134,7 @@ public class GameStateService
             Description = desc, IsMulti = isMulti,
             Player = player, SteamId = steamId
         };
+        _lastFrameUtc = DateTime.UtcNow; // a fresh mission is live; frames keep it alive
         // New mission — clear old state including geometry
         _groups.Clear(); _units.Clear(); _vehicles.Clear(); _lazes.Clear();
         lock (_deadUnitsLock) { _deadUnits.Clear(); }
@@ -99,7 +142,9 @@ public class GameStateService
         lock (_exportStatusLock) { _exportStatus = new ExportStatus { Phase = "exporting" }; }
         OnExportStatus?.Invoke(GetExportStatus());
         World = null;
-        // Auto-trigger world export so the frontend gets the map background
+        // Ask the game for its world info (cheap config read in getWorld.sqf).
+        // PutWorldInfo() then loads geometry from the disk cache when available
+        // and only queues the heavy Arma exports for data that isn't cached yet.
         EnqueueRequest(new ExtensionRequest { Command = "world", Client = "server", Data = [] });
     }
 
@@ -170,6 +215,7 @@ public class GameStateService
 
     public void PutUpdateEnd()
     {
+        _lastFrameUtc = DateTime.UtcNow; // keeps the mission alive (see ExpireStaleMission)
         // Build snapshot and broadcast
         var frame = BuildFrame();
         OnFrame?.Invoke(frame);
@@ -839,65 +885,4 @@ public class GameStateService
 
     public GameFrame GetCurrentFrame() => BuildFrame();
 
-    /// <summary>
-    /// Load cached world data from disk on startup so the map renders without the game.
-    /// </summary>
-    private void LoadCachedWorld()
-    {
-        var lastWorld = _cache.LoadLastWorld() ?? _cache.FindAnyCachedWorld();
-        if (lastWorld == null || !_cache.HasCache(lastWorld))
-        {
-            _log.LogInformation("No cached world data found on disk");
-            return;
-        }
-
-        // Look up worldSize from the static Athena Desktop cache
-        var info = _staticCache.GetMapInfoAsync(lastWorld).GetAwaiter().GetResult();
-        double worldSize = info?.WorldSize ?? 30720;
-
-        World = new WorldInfo
-        {
-            NameDisplay = lastWorld,
-            NameWorld   = lastWorld,
-            Size        = worldSize,
-        };
-
-        var cachedRoads     = _cache.LoadRoads(lastWorld);
-        var cachedForests   = _cache.LoadForests(lastWorld);
-        var cachedLocations = _cache.LoadLocations(lastWorld);
-        bool hasTrees = _cache.HasTreesCache(lastWorld);
-        var cachedTrees = hasTrees ? _cache.LoadTrees(lastWorld) : [];
-        var cachedStructures = _cache.HasStructuresCache(lastWorld) ? _cache.LoadStructures(lastWorld) : [];
-        var cachedElevations = _cache.HasElevationsCache(lastWorld) ? _cache.LoadElevations(lastWorld) : new ElevationsData();
-
-        lock (_geoLock)
-        {
-            _roads.AddRange(cachedRoads);
-            _trees.AddRange(cachedTrees);
-            _forests.AddRange(cachedForests.Cells);
-            _locations.AddRange(cachedLocations);
-            _structures.AddRange(cachedStructures);
-            _elevations.AddRange(cachedElevations.Cells);
-            _forestSampleSize = cachedForests.SampleSize;
-            if (cachedElevations.SampleSize > 0) _elevationSampleSize = cachedElevations.SampleSize;
-        }
-
-        // Set export status so frontend knows data is from cache
-        lock (_exportStatusLock)
-        {
-            _exportStatus = new ExportStatus
-            {
-                Phase            = "cached",
-                RoadCount        = cachedRoads.Count,      RoadsComplete      = true,
-                TreeCount        = cachedTrees.Count,      TreesComplete      = hasTrees,
-                ForestCount      = cachedForests.Cells.Count, ForestsComplete = true,
-                LocationCount    = cachedLocations.Count,  LocationsComplete  = true,
-                StructureCount   = cachedStructures.Count, StructuresComplete = cachedStructures.Count > 0,
-                ElevationCount   = cachedElevations.Cells.Count, ElevationsComplete = cachedElevations.Cells.Count > 0,
-            };
-        }
-
-        _log.LogInformation("Loaded cached world '{World}' (size={Size}): {Roads} roads, {Trees} trees, {Forests} forests, {Locations} locations, {Structures} structures, {Elevations} elevations",
-            lastWorld, worldSize, cachedRoads.Count, cachedTrees.Count, cachedForests.Cells.Count, cachedLocations.Count, cachedStructures.Count, cachedElevations.Cells.Count);
-    }
 }

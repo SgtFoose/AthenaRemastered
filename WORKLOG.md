@@ -4,6 +4,35 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Backend/SQF fixes: no startup world, stale mission expiry, honest map message, Eden/main-menu guard
+- PR #3 (version 1.2.0 + build label) merged by the owner as `eac69b7`. The test build on `D:` (`1.2.0-test (299e25b)`) matches `main`'s code (0 files differ).
+- **Owner live test of v1.2.0-test on Malden** (screenshot): new rendering works (coastline, contours, Bus colours, labels; forest semi-transparent). Remaining issues:
+  - the forest is still AR's in-game 150 m grid → next item (forest from the Athena Desktop cache)
+  - the long version label pushed "Donate" out of the header (horizontal scrollbar) → fixed in the core below
+  - "Exporting world data…" on Malden: the test EXE on `D:` has its own empty `MapCache` next to the EXE, so a one-time re-export is expected
+- **Owner observation: in the Eden editor (no mission started) AR connected and ran a full Stratis export** (roads, forests at 150 m, structures, locations, elevations, trees). It confirms the postInit runs outside real missions.
+- **Correction of an earlier diagnosis:** the "repeated full export on every mission start" isn't real when AR's own `MapCache` is complete. `PutWorldInfo()` loads cached geometry and only queues exports for missing data. On every mission start, `getWorld.sqf` (cheap config reads) still showed "Rendering map … This may take a few minutes…", which was misleading. The ~16 FPS seen earlier on Malden likely had another cause.
+- Changes (branch `fix/backend-startup-export-stale`):
+  - `Backend/Services/GameStateService.cs`:
+    - no world auto-load in the constructor; the unused `LoadCachedWorld()` was removed (61 lines)
+    - new `ExpireStaleMission()` + `MissionStaleTimeout` (30 s). Frames (`PutUpdateEnd`) and `PutMission` refresh `_lastFrameUtc`. On expiry it clears mission/world/units/groups/vehicles/lazes/dead units, drains queued export requests, resets the export status to idle and broadcasts an empty frame.
+  - `Backend/Services/BroadcastService.cs`: 5 s timer calls `ExpireStaleMission`; `IDisposable`.
+  - `Frontend/src/adapter/useAthenaHub.ts`: `onreconnecting` → `connected=false` immediately.
+  - `@AthenaRemastered/addons/athena/World/getWorld.sqf`: hint/systemChat now "Loading map data for X (cached maps load instantly)".
+  - `@AthenaRemastered/addons/athena/init.sqf`:
+    - exits when `is3DEN` (Eden editor) or when the main menu display (`findDisplay 0`) is open
+    - logs `Athena Init: context is3DEN/mainMenu/missionDisplay/missionName` to the RPT
+    - The main-menu check isn't an official Arma API, so verify it live via the RPT.
+  - Core re-synced from Web2 (`459bc81`, `b2c5ae8`): header label truncation, compact header label `v1.2.0-test` with the full label in footer/tooltip.
+- Validation:
+  - `dotnet build` 0 warnings / 0 errors; `npm run build` passed
+  - **Simulation** (AR backend + Vite + put API + Chrome DevTools screenshots):
+    - mission live → after the last frame, the backend logged "No game frames for 34s; expiring mission 'Sim Op' on 'Stratis'", and the UI returned to the welcome screen
+    - backend stopped while the page stayed open (no reload) → the header showed "Disconnected" within 10 s (previously only after all reconnect attempts, about 40 s or more)
+    - A first attempt with a page reload didn't prove anything; redone with the page kept open.
+  - First expiry test showed "Loading world data…" with zero counters on the welcome screen. Fixed by resetting the export status and draining the queued requests on expiry.
+  - **Test PBO**: `pack-pbo.ps1` → `athena.pbo` (73.7 KB, prefix `athena`) containing the guard and the new message. It's unsigned; signing (DSSignFile, owner's private key) is needed for servers that verify signatures.
+
 ### 2026-11-22 — Version 1.2.0 (in development) + build label on test builds
 - PR #2 (shared UI core) merged by the owner as `c1a790e`; branch deleted.
 - **Test build for the owner**, built from `main` with `publish.ps1`:
@@ -114,12 +143,12 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [ ] Steam Workshop pages: align AR and Web2. Names differ ("Athena Remastered" vs "@AthenaWeb2"), Web2's tags are odd (Animation, Editor Extension, Equipment, Terrain; AR: Mechanics), and the description styles differ. Owner request 2026-11-22, screenshots from Arma 3 Publisher.
 - [ ] Optional: offline world picker for AR (`CAPABILITIES.worldPicker`) over AR's cached worlds.
 - [ ] Split `useRecentShooterIds` out of `extensions/projectileTracking.tsx` (react-refresh lint).
-- [ ] UI goes back to the welcome/disconnected state when the server or game stops:
+- [x] (2026-11-22, branch `fix/backend-startup-export-stale`) UI goes back to the welcome/disconnected state when the server or game stops:
   - frontend: handle SignalR `onreconnecting` → `connected=false`, `onreconnected` → true
   - backend: expire the live mission after N seconds without frames (like Web2's live-world timeout) and broadcast it
-- [ ] Backend: drop the startup world auto-load.
-- [ ] SQF: main-menu guard in `init.sqf`.
-- [ ] Backend: skip the auto world export for cached worlds.
+- [x] Backend: drop the startup world auto-load (2026-11-22).
+- [~] SQF: main-menu guard in `init.sqf` (2026-11-22, is3DEN + findDisplay 0; verify live via the RPT).
+- [x] Backend: skip the auto world export for cached worlds. It already did when MapCache was complete; the misleading "Rendering map" message was fixed (2026-11-22).
 - [ ] Backend: forest cell size (16) + Y-flip fix (as in Web2's bridge).
 - [ ] Projectile tracking v2 as an AR extension (fixes the MLRS/M4/mortar bugs).
 - [ ] Turn `ATHENA_DEBUG_FIRED` off by default (it currently logs every tracked shell to the RPT).
