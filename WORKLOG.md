@@ -10,6 +10,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - vehicle labels unchanged (crew showed "P:")
   - one shot (`srifle_LRR_camo_F`, `B_408_Ball`) still gave two Recent Shots entries
   - Ground/Pilot map styles don't meet their purpose (added to the backlog)
+  - **OK:** projectile tracking with a laser target works on Malden. The laser-guided shot from the NightHawk drone near Saint Martin was drawn as a dashed line to the laser spot with a counting-down `LASE ETA` label, and the active laze marker was shown.
 - **Duplicate shots.** Backend → SignalR → frontend is a single path: one PUT gives one `Fired` broadcast, and `useAthenaHub` registers `conn.on('Fired')` once, without StrictMode. The duplicate comes from SQF: for on-foot shots, both the unit's `FiredMan` and its `Fired` handler run. The 1.2.0 guard (`setVariable` on the projectile) didn't stop it live. Fix:
   - `Mission/getUnits.sqf`: only `FiredMan` is added. It covers on-foot and vehicle-seat shots.
   - `Mission/getVehicles.sqf`: the vehicle `Fired` handler skips gunners that carry `ATHENA_EVENTS`, since their own `FiredMan` reports the shot. Gunners Athena doesn't track are still reported.
