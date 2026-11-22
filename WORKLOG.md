@@ -4,6 +4,23 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — CRITICAL: v1.2.0 never starts in a mission (main-menu guard) + Bus mod conflict
+- Perf live test: the server received no PUTs at all. The owner's RPTs (copied to the USB drive) show for **Workshop v1.2.0** and the perf test PBO, inside the real mission `Editor Athena Remastered v1.1.7.Malden`:
+  - `Athena Init: context is3DEN=false mainMenu=true missionDisplay=false missionName=Editor%20Athena%20Remastered%20v1%2e1%2e7`
+  - `Athena Init: main menu, not starting`
+- Cause: the PR #4 guard exited when the main menu display (IDD 0) was open. That display is still open while a real mission runs `postInit`, and IDD 46 does not exist yet, so Athena never started in any mission. The published v1.2.0 is broken for every user.
+- The RPTs also explain earlier test results:
+  - the 15:24 and 15:50 sessions loaded the **old** Workshop `athena.fixed.pbo` (no guard, no SQF fixes), not the test PBOs, which is why the duplicate shots persisted
+  - the guard was never live-verified
+  - the perf FPS measurement (17 FPS / CPU 68%) was taken while Athena was not running and is invalid
+- Fix (`init.sqf`):
+  - after the `is3DEN` check, `waitUntil { sleep 0.5; !isNull findDisplay 46 }`; the mission display only exists in a played mission (SP, editor preview, MP client), and in the main menu scene the script just waits
+  - safety net: exit if IDD 0 is open and `missionName` contains "intro" (`introExp`, `Malden_intro`)
+  - diag lines for the RPT
+  - `CHANGELOG.md` 1.2.1: added as the first fix
+- **Bus mod conflict:** the owner's launch line always loads `@Athena - An Arma 2nd Screen Application` together with AR. Both addons use the `athena` name and `\athena\` paths, so one overrides the other's scripts. Backlog: give AR its own addon name/prefix, and guard against a double init.
+- Owner instructions never said to disable Bus's mod; AR's README/Workshop text also doesn't mention it (to add).
+
 ### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
 - A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
   - **per-frame work: confirmed, the main cost.** `monitorArma.sqf` ran `MissionTime` + `MissionUpdates` + `updateend` in an `EachFrame` handler, with one blocking `callExtension` (synchronous HTTP to the local server) per tracked unit and vehicle, every frame.
@@ -388,4 +405,5 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [x] Turn `ATHENA_DEBUG_FIRED` off by default (done 2026-11-22, branch `fix/perf-quick-wins`).
 - [ ] GitHub: branch ruleset like Web2, a release-notes template, tag `v1.1.6`, GitHub Releases.
 - [ ] README/About in Web2's structure.
+- [ ] Rename AR's addon (CfgPatches `athena`, PBO prefix `\athena\`, `ATH_fnc_*`) so it can run next to Bus's Athena mod (Web2 users load both); guard `init.sqf` against a double start; document the conflict until then.
 - [ ] Map Style Ground / Pilot rework (shared core, implemented in Web2 and synced; owner request 2026-11-22): **Ground** = height map for ground troops, **Pilot** = black-and-white height map (dark = low, light = high) so pilots see peaks and valleys at a glance. 2D is fine as is.

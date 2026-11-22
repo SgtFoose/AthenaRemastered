@@ -10,6 +10,7 @@ For each release, include a `### BattlEye Status` subsection with one of:
 ## [1.2.1] - Unreleased (in development)
 
 ### Fixed
+- **Athena did not start in missions (v1.2.0).** The main-menu check saw the main menu display still open while a mission was loading and stopped Athena in every mission. Athena now waits for the mission display, which only exists while a mission is played.
 - FPS loss during missions: live position updates ran on every frame, with one blocking call to the server per unit and vehicle. They now run at most 4 times per second, like Bus's original relay. Mission makers can change the interval with `missionNamespace setVariable ["ATHENA_UPDATE_INTERVAL", <seconds>]`.
 - The game froze while exporting a large map: the terrain-height export looped over every metre of the map to find a few thousand sample points. It now steps directly from sample to sample (same points).
 - Per-shot debug logging (`ATHENA_DEBUG_FIRED`) is now off by default
