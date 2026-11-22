@@ -4,6 +4,21 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Map cache in Documents: no re-export after updates or new install folders
+- **Owner report (photo, old build `299e25b`):** "Exporting world data…" again on game start (Roads 250…, Trees 3500…, Locations 122 OK). Request: both tools must check for cached maps when the game starts and not trigger a new render every time.
+- **Findings:**
+  - **Web2:** never exports by itself. Static layers come from the Athena Desktop cache (`Documents\Athena\Maps`), and `startMapExport` is only sent by the "Export World Data" button (`App.tsx` `handleRequestWorld` → `useAthenaHub.requestWorldExport`). No change needed.
+  - **AR:** `PutWorldInfo()` already checks the cache and only queues missing parts. But `MapCacheService` stored the cache in `MapCache\` **beside the server EXE**, so every new folder (test packages, a moved EXE, possibly a Workshop update) started empty and re-exported the whole world.
+- **Fix** (branch `fix/persistent-map-cache`, stacked on `fix/vehicle-nato-markers`):
+  - `Backend/Services/MapCacheService.cs`:
+    - cache root is `Documents\AthenaRemastered\MapCache` (override `ATHENA_MAPCACHE_DIR`; falls back to the EXE folder if Documents is unavailable), logged at startup
+    - one-time migration copies a legacy EXE-side `MapCache` into the new root without overwriting existing files; the legacy folder is kept
+  - Docs: `CHANGELOG.md` (1.2.0 Changed/Fixed), `CLAUDE.md` (AR map cache section), `publish.ps1` comment.
+- **Validation:**
+  - `dotnet build Backend -c Release` passed (0 warnings).
+  - Simulation with a legacy cache for `testworld` next to the EXE and `ATHENA_MAPCACHE_DIR` set to an empty folder: log showed "Migrated 7 map cache file(s)". After `mission` + `world`, `/api/game/request` returned no export requests.
+  - Control run without any cache: `roads, trees, forests, locations, structures, elevations` were queued.
+
 ### 2026-11-22 — Vehicle markers: upright NATO symbols, real crew seats (core sync) + test package
 - **Owner report (v1.2.0-test, Malden):** "vehicle icons look weird". They showed as large tilted blue rectangles with a dot, with crew labelled `P:`. Root cause is in the shared core (details in Web2's WORKLOG):
   - the NATO `b_art` frame used for static naval turrets (Mk41 VLS, Mk45 Hammer) and SAM/AAA was rotated with the turret heading at 80 px

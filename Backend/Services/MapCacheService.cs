@@ -4,9 +4,17 @@ using AthenaRemastered.Server.Models;
 namespace AthenaRemastered.Server.Services;
 
 /// <summary>
-/// Persists map geometry (roads, forests, locations) to disk so Arma
-/// doesn't need to re-export them every session. Cache lives under
-/// MapCache/{worldName}/ beside the backend executable.
+/// Persists map geometry (roads, trees, forests, locations, structures,
+/// elevations) to disk so Arma doesn't need to re-export a world every
+/// session. <c>GameStateService.PutWorldInfo()</c> checks this cache when a
+/// mission reports its world and only asks the extension for missing parts.
+///
+/// Location: <c>%USERPROFILE%\Documents\AthenaRemastered\MapCache\{world}\</c>
+/// (override with the <c>ATHENA_MAPCACHE_DIR</c> environment variable).
+/// Before 1.2.0 the cache lived in <c>MapCache\</c> beside the server EXE, so
+/// every new install folder, test build or Workshop update started empty and
+/// triggered a full re-export. Files from that legacy folder are copied over
+/// once at startup (existing files in the new location are never overwritten).
 /// </summary>
 public class MapCacheService
 {
@@ -16,8 +24,76 @@ public class MapCacheService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
     };
 
+    /// <summary>Environment variable that overrides the cache root (tests, portable setups).</summary>
+    public const string CacheDirEnvVar = "ATHENA_MAPCACHE_DIR";
+
+    /// <summary>
+    /// Root folder of the map cache. Resolved once: the env override, else
+    /// Documents\AthenaRemastered\MapCache (stable across EXE locations, like
+    /// Athena Desktop's Documents\Athena\Maps).
+    /// </summary>
+    public static readonly string CacheRoot = ResolveCacheRoot();
+
+    /// <summary>Pre-1.2.0 cache location beside the server EXE (migration source only).</summary>
+    private static string LegacyCacheRoot => Path.Combine(AppContext.BaseDirectory, "MapCache");
+
+    private static string ResolveCacheRoot()
+    {
+        var overrideDir = Environment.GetEnvironmentVariable(CacheDirEnvVar);
+        if (!string.IsNullOrWhiteSpace(overrideDir)) return Path.GetFullPath(overrideDir.Trim());
+        var docs = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        // Documents can be unavailable (e.g. service account); fall back to the EXE folder.
+        return string.IsNullOrEmpty(docs)
+            ? LegacyCacheRoot
+            : Path.Combine(docs, "AthenaRemastered", "MapCache");
+    }
+
+    private readonly ILogger<MapCacheService> _log;
+
+    /// <summary>
+    /// Creates the service and migrates a legacy EXE-side cache (see class summary).
+    /// Side effects: creates <see cref="CacheRoot"/>, copies legacy files, logs both paths.
+    /// </summary>
+    public MapCacheService(ILogger<MapCacheService> log)
+    {
+        _log = log;
+        _log.LogInformation("Map cache folder: {Root}", CacheRoot);
+        MigrateLegacyCache();
+    }
+
+    /// <summary>
+    /// Copies files from the old EXE-side MapCache into <see cref="CacheRoot"/>,
+    /// skipping files that already exist there. The legacy folder is left in
+    /// place (harmless, and a rollback to an older build keeps working).
+    /// </summary>
+    private void MigrateLegacyCache()
+    {
+        var legacy = LegacyCacheRoot;
+        if (!Directory.Exists(legacy)) return;
+        if (string.Equals(Path.GetFullPath(legacy).TrimEnd('\\', '/'), CacheRoot.TrimEnd('\\', '/'), StringComparison.OrdinalIgnoreCase)) return;
+        int copied = 0;
+        try
+        {
+            foreach (var src in Directory.EnumerateFiles(legacy, "*", SearchOption.AllDirectories))
+            {
+                var dst = Path.Combine(CacheRoot, Path.GetRelativePath(legacy, src));
+                if (File.Exists(dst)) continue;
+                Directory.CreateDirectory(Path.GetDirectoryName(dst)!);
+                File.Copy(src, dst);
+                copied++;
+            }
+            if (copied > 0)
+                _log.LogInformation("Migrated {Count} map cache file(s) from {Legacy}", copied, legacy);
+        }
+        catch (Exception ex)
+        {
+            // Never block startup: worst case the world is exported once more.
+            _log.LogWarning(ex, "Map cache migration from {Legacy} failed after {Count} file(s)", legacy, copied);
+        }
+    }
+
     private static string CacheDir(string worldName) =>
-        Path.Combine(AppContext.BaseDirectory, "MapCache", worldName.ToLowerInvariant());
+        Path.Combine(CacheRoot, worldName.ToLowerInvariant());
 
     // ── Check ────────────────────────────────────────────────────────────────
 
@@ -104,7 +180,7 @@ public class MapCacheService
     // ── Last-world persistence ───────────────────────────────────────────
 
     private static string LastWorldFile =>
-        Path.Combine(AppContext.BaseDirectory, "MapCache", "last-world.txt");
+        Path.Combine(CacheRoot, "last-world.txt");
 
     public void SaveLastWorld(string worldName)
     {
@@ -125,7 +201,7 @@ public class MapCacheService
     /// </summary>
     public string? FindAnyCachedWorld()
     {
-        var root = Path.Combine(AppContext.BaseDirectory, "MapCache");
+        var root = CacheRoot;
         if (!Directory.Exists(root)) return null;
         return Directory.EnumerateDirectories(root)
             .Select(Path.GetFileName)
