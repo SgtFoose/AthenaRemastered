@@ -12,7 +12,9 @@ A faithful remaster of Bus's original Athena — stream your Arma 3 mission to a
 [*] [b]Full Terrain Rendering[/b] — Roads, forests, coastlines, contour lines, buildings, and named locations exported directly from the game engine
 [*] [b]Multiple Map Styles[/b] — Switch between 2D Topographic, Ground Heatmap, and Pilot Heatmap views
 [*] [b]NATO APP-6 Symbology[/b] — Group markers with proper echelon indicators
-[*] [b]Vehicle Recognition[/b] — Distinct icons for tanks, APCs, helicopters, planes, boats, artillery, drones, and more
+[*] [b]Vehicle Recognition[/b] — The classic Athena vehicle silhouettes for tanks, APCs, helicopters, planes, boats, artillery, drones, static weapons, and more
+[*] [b]I-TGT Target Capture[/b] — Press T or the middle mouse button (SAVE TGT on a tablet) to store map positions as targets
+[*] [b]Tablet Layout[/b] — Collapsible sidebars and a layout made for tablets and phones
 [*] [b]Role-Specific Unit Icons[/b] — Infantry, medic, officer, engineer, recon, MG, AT, and more
 [*] [b]Active Lazes[/b] — Live laser designation points visible to all connected Athena clients
 [*] [b]Projectile Tracking[/b] — Predicted ordnance paths with live ETA labels for major launches
@@ -62,7 +64,7 @@ No external servers. No cloud. Everything stays on your machine or local network
 
 [b]BattlEye Status:[/b]
 [list]
-[*] [b]v1.1.6:[/b] Use [b]-noBE[/b] for DLL-based singleplayer/LAN sessions until allowlisting is refreshed.
+[*] [b]v1.2.0:[/b] The extension DLL is not allowlisted (unchanged since v1.1.5). Use [b]-noBE[/b] for singleplayer/LAN sessions.
 [*] [b]Workaround (now):[/b] Use [b]-noBE[/b] launch flag for singleplayer/LAN sessions.
 [*] [b]Future (DLL-free):[/b] A migration to SQF + external bridge is planned, eliminating the DLL dependency.
 [/list]
@@ -93,7 +95,7 @@ Athena Remastered works on [b]every Arma 3 map[/b] — vanilla or modded. Terrai
 [*] Arma 3 (Steam)
 [*] Windows 10/11
 [*] Any modern web browser (Chrome, Firefox, Edge, Safari)
-[*] [b]Current (v1.1.6):[/b] BattlEye disabled (use [b]-noBE[/b] flag for LAN/singleplayer) while DLL allowlisting is refreshed
+[*] [b]Current (v1.2.0):[/b] BattlEye disabled (use [b]-noBE[/b] flag for LAN/singleplayer); the extension DLL is not allowlisted
 [*] [b]Future:[/b] No BattlEye workaround needed (DLL-free architecture planned)
 [/list]
 
@@ -127,6 +129,21 @@ These settings are pushed automatically from the mission to all connected browse
 [hr][/hr]
 
 [h1]Version History[/h1]
+
+[b]v1.2.0[/b] — November 22, 2026
+[list]
+[*] New map look from Athena Web 2: classic Athena colours, smoothed coastlines and contour lines, airport surfaces, tree markers and the classic vehicle silhouettes
+[*] Collapsible sidebars and a tablet layout
+[*] I-TGT target capture (T / middle mouse button / SAVE TGT)
+[*] Follow Player switches off when you pan or zoom yourself
+[*] No map while Arma is in the main menu or the editor
+[*] Exported maps are kept in Documents\AthenaRemastered\MapCache and are no longer exported again after an update
+[*] Forest overlay no longer far too dense; with an Athena Desktop export it matches Athena Web 2
+[*] Fixed every shot appearing twice in Recent Shots
+[*] Fixed crew labels showing "P:" for everyone
+[*] M5 Sandstorm / artillery: projectile paths use the real impact point and time of flight after the first impact
+[*] Known limitations: without a laze, the first artillery/rocket shot is still a fixed-range guess; Ground/Pilot map styles are being reworked
+[/list]
 
 [b]v1.1.6[/b] — March 21, 2026
 [list]

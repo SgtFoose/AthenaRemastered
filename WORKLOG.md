@@ -4,6 +4,63 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Follow-up PR after an early merge
+- AR #10 was merged before the last 7 commits were pushed (server dedupe, silhouettes, v1.2.0 release docs, logs), so `main` lacked code that shipped to the Workshop. Follow-up PR #11 → `main` brings `main` in line with the published v1.2.0 before the GitHub release is tagged.
+
+### 2026-11-22 — release: v1.2.0 published to the Steam Workshop
+- Owner signed `athena.pbo` with DS Utils on the game PC (Authority `AthenaRemasteredKey`):
+  - the first attempts signed an old PBO in a Dropbox folder; DS Utils skips a second `athena.pbo` as a duplicate unless the list is reset
+  - the final signature is on a copy of the release package in the owner's Downloads folder
+  - DSCheckSignatures: "No error"
+- Updated Workshop item 3687225607 with Arma 3 Tools Publisher: "Mod content structure seems to be valid", Extensions 64 bit, Signatures "all signed", 113.8 MB, "The item was successfully published".
+- The change note was pasted into the **Description** field, which replaced the long Workshop page description. `workshop_description.txt` was updated for 1.2.0 (vehicle silhouettes, I-TGT, tablet layout, BattlEye status, v1.2.0 version history) so the owner can paste it back on the Workshop page (Edit title & description). The USB drive was at the game PC, so the owner takes the text from GitHub (branch `fix/fired-dedupe-header-label`) instead of D:.
+- Pending:
+  - the signed `athena.pbo` and `.bisign` back on D: → rebuild the GitHub release zip and replace the draft asset
+  - merge AR #10 / Web2 #11
+  - publish the GitHub release (tag `v1.2.0`)
+
+### 2026-11-22 — release: v1.2.0 Workshop package on D:
+- Release docs (commit `ba2cf17`):
+  - `CHANGELOG.md`: `[1.2.0] - 2026-11-22`, with the live-test fixes (shots, crew labels, MLRS impact, silhouettes, status box, header label), Known Limitations and BattlEye status (DLL unchanged)
+  - `.github/release-notes-template-v1.2.0.md` updated
+  - `README.md`: Latest Release and BattlEye status for 1.2.0
+  - `workshop_changenote.txt` rewritten for v1.2.0
+  - `@AthenaRemastered/meta.cpp`: version 1.2.0 (was 1.1.6)
+- Release build with `publish.ps1 -Release` (no `-test` label in the bundle, verified). Package `D:\AthenaRemastered-Workshop-v1.2.0`:
+  - `@AthenaRemastered\` with the unsigned `addons\athena.pbo` (76.2 KB), `keys\AthenaRemasteredKey.bikey`, `mod.cpp`, `meta.cpp`, `AthenaServerSettings.txt`, `AthenaServer_x64.dll` (`3DE7F325…`, unchanged)
+  - `Server\` without `.pdb`, `appsettings.Development.json` and `Logs`
+  - `workshop-change-note-v1.2.0.txt` and `PUBLISH-INSTRUCTIONS.txt`: sign with DS Utils on the game PC, check with DSCheckSignatures, update Workshop item 3687225607 via Publisher
+- D: housekeeping:
+  - the owner had emptied D: on purpose; the items Claude restored from the recycle bin were not wanted
+  - Claude's attempt to recycle them again was blocked by the auto-mode classifier; the owner tidies D: themselves
+  - the signing key backup on D: stays available for step 2
+- `.gitignore`: added `.env`, `.env/`, `.env.*` (`*.biprivatekey` was already ignored)
+- Next: owner signs and publishes to the Workshop → Claude rebuilds the GitHub release zip with the signed PBO and updates the draft → owner merges AR #10 / Web2 #11 and publishes the release.
+
+### 2026-11-22 — Live test 788d6f4: still two shots per shot; vehicles still squares
+- Owner tested `v1.2.0-test (788d6f4)`; the footer confirms the new server. Results:
+  - one `srifle_LRR_camo_F` shot still gave two Recent Shots entries
+  - the vehicles were still blue squares
+- Isolation: a single simulated `fired` PUT on this build gives exactly one feed entry (headless screenshot), and the DLL (`Extension/dllmain.cpp`, `put`) posts once per callExtension. So Arma sends two PUTs per shot. With the new PBO the projectile list guard should make that impossible, which strongly suggests the session still loaded the Workshop `athena.pbo` (1.1.6, FiredMan + Fired). To verify: the new PBO writes `Athena Init: context` lines to the RPT.
+- **Server-side guard** (`Backend/Services/GameStateService.cs`):
+  - new `IsDuplicateFired`: same shooter + weapon + muzzle + ammo + projectile string within 250 ms is dropped (40 ms when the projectile is null)
+  - the feed is now correct whichever PBO is loaded
+  - `vehicleId` is deliberately not part of the key
+- **Vehicles:** core sync from Web2 (`dacfb3c`). Every vehicle is now a Bus silhouette; the NATO frames for drones, turrets, radars, MLRS and VLS are removed.
+
+### 2026-11-22 — release: PBO signing prerequisites
+- The owner's PC with Arma 3 Tools has been wiped. Searched this machine (`C:\Users`) and the owner's USB drive (`D:\`) for `*.biprivatekey`: none found, only the public `AthenaRemasteredKey.bikey`. The private key is gitignored by design (`.gitignore`: `*.biprivatekey`).
+- Needed to sign:
+  - Arma 3 Tools (Steam; `DSSignFile` / `DSCreateKey` in `Arma 3 Tools\DSSignFile\`)
+  - the private key `AthenaRemasteredKey.biprivatekey`
+  - Addon Builder is not needed: the PBO is packed with `pack-pbo.ps1`
+- If the key is lost:
+  - create a new pair with `DSCreateKey`
+  - replace `@AthenaRemastered/keys/*.bikey` and the tracked `.bisign`
+  - mention in the release notes that servers verifying signatures must swap the bikey
+  - back up the new private key outside the repo
+- Update: the owner has a backup of the private key on the USB drive (outside any repo). Verified it matches the shipped `keys/AthenaRemasteredKey.bikey`: same key name and identical 1024-bit RSA modulus (compared in memory, nothing printed or copied). This machine has no Steam/Arma 3 Tools, so signing happens with DSUtils/DSSignFile on the owner's game PC. Test packages rebuilt to D: (`af8de3b`, Web2 `dacfb3c`).
+
 ### 2026-11-22 — Core sync: map-data status box hides itself after loading
 - Owner request (screenshot of "Loaded from cache" on Malden): hide the box. Shared-core change from Web2 (`c05c765`): `cached` / `complete` disappear after 4 s, while `exporting` stays visible. Synced with `sync-core-to-ar.ps1` (`components/ExportStatusOverlay.tsx`, `core-manifest.json`).
 - Note: the owner's screenshot footer still showed `(e15e8a0)`, so that session ran the previous server build. The new `Server\` in `D:\@AthenaRemastered` must be started for the crew-label and version-label fixes.
