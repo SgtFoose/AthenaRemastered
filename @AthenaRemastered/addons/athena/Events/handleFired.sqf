@@ -23,9 +23,14 @@ if (!isNull _last && {_last isKindOf "AllVehicles"}) then {
 };
 };
 
-// Prevent duplicate fired reports when both Fired/FiredMan handlers observe the same projectile.
+// Prevent duplicate fired reports: the unit's FiredMan and Fired handlers (and the
+// vehicle's Fired handler) all observe the same projectile.
+// The exitWith must be at the top level of this script: inside an
+// `if (...) then { ... }` block it only leaves that block, so before 1.2.0 the
+// guard never stopped the second report and every shot appeared twice in
+// "Recent Shots".
+if (!isNull _projectile && {_projectile getVariable ["ATHENA_FIRED_SENT", false]}) exitWith {};
 if (!isNull _projectile) then {
-        if (_projectile getVariable ["ATHENA_FIRED_SENT", false]) exitWith {};
         _projectile setVariable ["ATHENA_FIRED_SENT", true, false];
 };
 
@@ -145,12 +150,21 @@ private _pushCandidate = {
         private _dist = sqrt ((_dx * _dx) + (_dy * _dy));
         if (_dist < 5) exitWith {};
 
+        // Geometry filter: reject candidates beyond the weapon's range or behind the
+        // fire direction (dot < 0.1). A flag is needed because an exitWith inside
+        // the `then` block would only leave that block (before 1.2.0 these
+        // candidates were never rejected).
         private _dot = 1;
+        private _reject = false;
         if (_applyGeometry) then {
-                if (_dist > _maxRange) exitWith {};
-                _dot = ((_dx / _dist) * _dirX) + ((_dy / _dist) * _dirY);
-                if (_dot < 0.1) exitWith {};
+                if (_dist > _maxRange) then {
+                        _reject = true;
+                } else {
+                        _dot = ((_dx / _dist) * _dirX) + ((_dy / _dist) * _dirY);
+                        if (_dot < 0.1) then { _reject = true; };
+                };
         };
+        if (_reject) exitWith {};
 
         private _entityId = _obj call BIS_fnc_netID;
         if (_entityId isEqualTo "") then {

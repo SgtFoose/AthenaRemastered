@@ -4,6 +4,23 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Recent Shots: one entry per shot, flat header icons
+- **Owner report:** in AR, one shot creates two "Recent Shots" entries; the pistol icon looks childish.
+- **Cause (duplicates):**
+  - Units have both a `FiredMan` and a `Fired` handler (`Mission/getUnits.sqf`), and vehicles have their own `Fired` handler (`Mission/getVehicles.sqf`).
+  - `Events/handleFired.sqf` meant to skip a projectile it had already reported (`ATHENA_FIRED_SENT`), but the `exitWith` sat inside `if (!isNull _projectile) then { ... }`. In SQF that only leaves the `then` block, so every shot was sent twice.
+  - The frontend projectile layer already deduplicated, which hid the problem there; `EventFeed` did not.
+- **Same bug found nearby:** `_pushCandidate` used `exitWith` inside `if (_applyGeometry) then { ... }`, so targets beyond `_maxRange` or behind the fire direction (dot < 0.1) were never rejected as target candidates. This possibly contributes to wrong projectile target estimates (see the projectile tracking backlog). The other `exitWith`s in the addon were checked; they are at script or function top level.
+- **Fix** (branch `fix/fired-feed-duplicates`, stacked on `fix/forest-desktop-cache`):
+  - `handleFired.sqf`: top-level `exitWith` for the duplicate guard; a reject flag for the geometry filter
+  - `Frontend/src/components/EventFeed.tsx`: emoji ☠ / 🔫 replaced with flat inline-SVG line icons (crossed circle / reticle, `currentColor`); file header and doc comments added; `MAX_SHOTS_LISTED` constant
+  - `CHANGELOG.md`: 1.2.0 Fixed/Changed
+- **Validation:**
+  - `npx eslint src/components/EventFeed.tsx` clean (the full lint run has 9 pre-existing errors elsewhere)
+  - `publish.ps1` passed
+  - Put-API simulation with two `fired` events: two entries, new icons render in the header colours
+  - The SQF duplicate fix needs a live check in Arma: one shot should give one entry
+
 ### 2026-11-22 — Forest overlay: Bus 16 m cells from the Athena Desktop cache, no single-tree cells
 - **Owner report (screenshots: Web2 on Tanoa vs AR v1.2.0-test on Malden):** AR's forest overlay is way too dense compared to Web2. Also "two finger pinch zoom is too slow" (device to be clarified: trackpad pinch vs tablet touch; same Leaflet settings in both apps via the shared core: `zoomSnap 0.1`, `zoomDelta 0.25`, `wheelPxPerZoomLevel 80`).
 - **Cause:**
