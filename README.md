@@ -19,6 +19,8 @@
 
 ## Latest Release
 
+> **v1.2.1 (hotfix):** v1.2.0 did not start in missions. v1.2.1 fixes that, removes the FPS cost (live updates 4× per second, tested with 66 units and 15 vehicles), stops map exports from freezing the game, and makes projectile tracking work live on tablets. Do not load Bus's original Athena mod at the same time. See the [CHANGELOG](CHANGELOG.md).
+
 ### v1.2.0 — the classic Athena look, rebuilt
 
 Athena Remastered v1.2.0 brings the map renderer of [Athena Web 2](https://github.com/SgtFoose/Athena-Web-2) to Athena Remastered. The map now looks like Bus's original Athena Desktop: the same colours, smoothed coastlines and contour lines, airport surfaces, individual trees, and the classic Athena vehicle silhouettes. Your units and groups sit on top with clear labels.

@@ -4,6 +4,17 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — release: v1.2.1 hotfix prepared
+- The owner approved the release after the live test. Not tested live: reconnect after the tablet screen was off (low risk).
+- PR #13 had been merged with only the first perf commit. The later commits (init fix, tablet clock/reconnect, M5, test logs) were rebased onto `main` as branch `release/v1.2.1` (clean rebase, no conflicts).
+- Version 1.2.1 in `Frontend/src/version.ts`, `Frontend/package.json` (+ lock root), `Backend/AthenaRemastered.Server.csproj`, `Extension/config.h` (source only; the shipped DLL is unchanged), `@AthenaRemastered/mod.cpp` and `meta.cpp`.
+- Docs:
+  - `CHANGELOG.md`: `[1.2.1] - 2026-11-22` hotfix note, plus Known Limitations (Bus mod conflict, first-shot HDG guess, zoomed-out icon blob)
+  - `workshop_changenote.txt`: v1.2.1
+  - `workshop_description.txt`: BattlEye line, a "do not combine with Bus's mod" note, and a v1.2.1 history block
+  - `README.md`: v1.2.1 hotfix callout
+  - `.github/release-notes-template-v1.2.1.md`: fixes on top, Bus-mod warning, troubleshooting row
+
 ### 2026-11-22 — 1.2.1: tablet projectile tracking (client clock), reconnect, M5 impact
 - Owner: the PC browser shows every projectile, but the tablet needs F5 and often still shows none live; the Fire Control popup is missing.
 - Headless check on this PC (server and browser share a clock): a simulated `Sh_155mm_AMOS` shot shows the track and the Fire Control panel (`Crew FREE HDG 57s`). The panel works; the tablet problem is clock-related.

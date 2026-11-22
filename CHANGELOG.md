@@ -7,7 +7,9 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
-## [1.2.1] - Unreleased (in development)
+## [1.2.1] - 2026-11-22
+
+Hotfix for v1.2.0, which did not start in missions. Everyone on v1.2.0 should update.
 
 ### Fixed
 - **Athena did not start in missions (v1.2.0).** The main-menu check saw the main menu display still open while a mission was loading and stopped Athena in every mission. Athena now waits for the mission display, which only exists while a mission is played.
@@ -20,8 +22,13 @@ For each release, include a `### BattlEye Status` subsection with one of:
 
 Thanks to Mrakos for the performance analysis on the Steam Workshop.
 
+### Known Limitations
+- Do not load Bus's original Athena mod at the same time as Athena Remastered: both use the same internal addon name, so one overrides the other's scripts. A rename is planned.
+- Unguided artillery/rockets without a laze: the first shot of a fire mission is still a fixed-range guess; follow-up shots use the real impact point and time of flight
+- Zoomed out, vehicle silhouettes and unit labels can overlap into one blob; zoom-scaled icons are planned
+
 ### BattlEye Status
-- Not Submitted: `AthenaServer_x64.dll` unchanged
+- Not Submitted: `AthenaServer_x64.dll` unchanged since v1.1.5 (SHA256 `3DE7F325…1EE02`); use `-noBE`
 
 ## [1.2.0] - 2026-11-22
 
