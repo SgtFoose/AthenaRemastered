@@ -14,6 +14,11 @@ Purpose: chronological record of every step, fix, investigation and decision in 
   - `workshop_description.txt`: BattlEye line, a "do not combine with Bus's mod" note, and a v1.2.1 history block
   - `README.md`: v1.2.1 hotfix callout
   - `.github/release-notes-template-v1.2.1.md`: fixes on top, Bus-mod warning, troubleshooting row
+- Release screenshots from the owner's iPad (live test, Malden), 4 of 6 unique shots:
+  - `Images/Athena Remastered v1.2.1 Laser Cruise Missile.jpg`, `... Drone Laze Overview.jpg`, `... Fire Control.jpg`, `... ORBAT.jpg`
+  - the Safari bar (clock, battery, LAN IP) cropped off; 1600 px JPEG q88, 240–460 KB each
+  - added as a "Screenshots" section to the v1.2.1 release notes, with raw.githubusercontent `main` URLs (they work after the merge)
+  - the shots still show the test label `v1.2.0-test (4ca0486)` in the sidebar
 
 ### 2026-11-22 — 1.2.1: tablet projectile tracking (client clock), reconnect, M5 impact
 - Owner: the PC browser shows every projectile, but the tablet needs F5 and often still shows none live; the Fire Control popup is missing.
