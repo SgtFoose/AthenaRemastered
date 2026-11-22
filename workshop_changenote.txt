@@ -1,24 +1,22 @@
-v1.2.0 - New map look from Athena Web 2 + fixes
+v1.2.1 - Hotfix: Athena starts again in missions + performance
 
-New
-- Map rendering from Athena Web 2: classic Athena colours, smoothed coastlines and contour lines, airport surfaces, tree markers and the classic Athena vehicle silhouettes
-- Collapsible sidebars (< and > buttons) and a tablet layout
-- I-TGT target capture: press T or the middle mouse button (SAVE TGT on a tablet) to store a target
-- Follow Player switches off when you pan or zoom yourself
+IMPORTANT: v1.2.0 did not start in missions. Please make sure Steam has updated the mod, and restart the server (Server\AthenaRemastered.Server.exe).
 
 Fixes
-- No map while Arma is in the main menu or the editor (welcome screen until a mission runs)
-- Exported maps are kept in Documents\AthenaRemastered\MapCache, so they are not exported again after an update (existing exports are copied over automatically)
-- Forest overlay no longer far too dense; with an Athena Desktop export it matches Athena Web 2
-- Every shot appeared twice in Recent Shots
-- Crew labels showed "P:" for everyone; they now show D: / G: / C:
-- Drones, turrets and radars no longer show as a large tilted rectangle
-- M5 Sandstorm / artillery: the projectile path uses the real impact point and time of flight after the first impact
-- "Loaded from cache" box disappears after a few seconds; version label no longer cut off
+- Athena starts again in every mission (v1.2.0 thought the mission was still the main menu)
+- No more FPS loss: live updates now run 4 times per second instead of every frame (tested with 66 units and 15 vehicles: same FPS as without Athena)
+- Exporting a large map no longer freezes the game
+- Tablets: projectile paths and the Fire Control panel now show live, also when the tablet clock is a few seconds off
+- Tablets: the map reconnects by itself after the screen was off (no F5 needed)
+- One Recent Shots entry per shot
+- Crew labels show the real seat (D: driver, G: gunner, C: commander)
+- M5 Sandstorm / artillery: follow-up shots use the real impact point and time of flight
+- Per-shot debug logging is off by default
 
-Known limitations
-- Without a laze, the first artillery/rocket shot of a fire mission is still a fixed-range guess (real in-flight tracking is planned)
-- Map styles Ground and Pilot are being reworked
+Thanks to Mrakos for the performance analysis.
+
+Note
+- Do not load Bus's original "Athena - An Arma 2nd Screen Application" mod together with Athena Remastered. Both use the same internal name and get in each other's way.
 
 BattlEye
 - The extension DLL is unchanged and not allowlisted: use -noBE for singleplayer / LAN

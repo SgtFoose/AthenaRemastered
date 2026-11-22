@@ -7,17 +7,28 @@ For each release, include a `### BattlEye Status` subsection with one of:
 - `Pending` (submitted, waiting on BattlEye)
 - `Not Submitted` (no submission yet)
 
-## [1.2.1] - Unreleased (in development)
+## [1.2.1] - 2026-11-22
+
+Hotfix for v1.2.0, which did not start in missions. Everyone on v1.2.0 should update.
 
 ### Fixed
+- **Athena did not start in missions (v1.2.0).** The main-menu check saw the main menu display still open while a mission was loading and stopped Athena in every mission. Athena now waits for the mission display, which only exists while a mission is played.
 - FPS loss during missions: live position updates ran on every frame, with one blocking call to the server per unit and vehicle. They now run at most 4 times per second, like Bus's original relay. Mission makers can change the interval with `missionNamespace setVariable ["ATHENA_UPDATE_INTERVAL", <seconds>]`.
 - The game froze while exporting a large map: the terrain-height export looped over every metre of the map to find a few thousand sample points. It now steps directly from sample to sample (same points).
 - Per-shot debug logging (`ATHENA_DEBUG_FIRED`) is now off by default
+- Tablets showed projectile tracks (and the Fire Control panel) late, never, or only after F5. Shot times now use the device's own receive time instead of the server clock, so a tablet clock that is a few seconds off no longer matters.
+- The connection to the server now keeps retrying after an interruption (for example the tablet screen going off) and reconnects as soon as the page is visible again. Previously it gave up after a few attempts until F5.
+- M5 Sandstorm rockets are now tracked to their impact point (the artillery check also looks at the weapon), so follow-up shots use the real impact point and time of flight
 
 Thanks to Mrakos for the performance analysis on the Steam Workshop.
 
+### Known Limitations
+- Do not load Bus's original Athena mod at the same time as Athena Remastered: both use the same internal addon name, so one overrides the other's scripts. A rename is planned.
+- Unguided artillery/rockets without a laze: the first shot of a fire mission is still a fixed-range guess; follow-up shots use the real impact point and time of flight
+- Zoomed out, vehicle silhouettes and unit labels can overlap into one blob; zoom-scaled icons are planned
+
 ### BattlEye Status
-- Not Submitted: `AthenaServer_x64.dll` unchanged
+- Not Submitted: `AthenaServer_x64.dll` unchanged since v1.1.5 (SHA256 `3DE7F325…1EE02`); use `-noBE`
 
 ## [1.2.0] - 2026-11-22
 

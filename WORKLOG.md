@@ -4,6 +4,76 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — release: v1.2.1 hotfix prepared
+- The owner approved the release after the live test. Not tested live: reconnect after the tablet screen was off (low risk).
+- PR #13 had been merged with only the first perf commit. The later commits (init fix, tablet clock/reconnect, M5, test logs) were rebased onto `main` as branch `release/v1.2.1` (clean rebase, no conflicts).
+- Version 1.2.1 in `Frontend/src/version.ts`, `Frontend/package.json` (+ lock root), `Backend/AthenaRemastered.Server.csproj`, `Extension/config.h` (source only; the shipped DLL is unchanged), `@AthenaRemastered/mod.cpp` and `meta.cpp`.
+- Docs:
+  - `CHANGELOG.md`: `[1.2.1] - 2026-11-22` hotfix note, plus Known Limitations (Bus mod conflict, first-shot HDG guess, zoomed-out icon blob)
+  - `workshop_changenote.txt`: v1.2.1
+  - `workshop_description.txt`: BattlEye line, a "do not combine with Bus's mod" note, and a v1.2.1 history block
+  - `README.md`: v1.2.1 hotfix callout
+  - `.github/release-notes-template-v1.2.1.md`: fixes on top, Bus-mod warning, troubleshooting row
+- Release screenshots from the owner's iPad (live test, Malden), 4 of 6 unique shots:
+  - `Images/Athena Remastered v1.2.1 Laser Cruise Missile.jpg`, `... Drone Laze Overview.jpg`, `... Fire Control.jpg`, `... ORBAT.jpg`
+  - the Safari bar (clock, battery, LAN IP) cropped off; 1600 px JPEG q88, 240–460 KB each
+  - added as a "Screenshots" section to the v1.2.1 release notes, with raw.githubusercontent `main` URLs (they work after the merge)
+  - the shots still show the test label `v1.2.0-test (4ca0486)` in the sidebar
+- Owner: testing done; push everything to GitHub, then the release and the Workshop. Branch `release/v1.2.1` pushed, PR #14 → `main`. Workshop package copied to `D:\AthenaRemastered-Workshop-v1.2.1` (PBO hash verified) for signing on the game PC.
+
+### 2026-11-22 — 1.2.1: tablet projectile tracking (client clock), reconnect, M5 impact
+- Owner: the PC browser shows every projectile, but the tablet needs F5 and often still shows none live; the Fire Control popup is missing.
+- Headless check on this PC (server and browser share a clock): a simulated `Sh_155mm_AMOS` shot shows the track and the Fire Control panel (`Crew FREE HDG 57s`). The panel works; the tablet problem is clock-related.
+- **Cause 1, client clock:** `projectileTracking.tsx` uses `Date.parse(ev.at)` (server clock) against `Date.now()` (device clock). A tablet clock a few seconds off makes every track look expired or not yet fired; the panel stays empty because it lists active tracks. This was already a backlog item (Safari vs Chrome drift).
+- **Cause 2, reconnect:** the default `withAutomaticReconnect()` (0/2/10/30 s, then give up) left tablets disconnected after the screen had been off, until F5.
+- Fixes (`Frontend/src/adapter/useAthenaHub.ts`, AR-only adapter, no core change):
+  - `stampReceived`: `Fired` / `FiredImpact` get this device's receive time as `at`
+  - endless reconnect policy (0, 1, 2, 4, 8 s, then every 10 s)
+  - `onclose` restarts the start loop
+  - `visibilitychange` reconnects as soon as the page is visible again
+- **M5 impact:** `handleFired.sqf` also checks `CfgWeapons >> weapon >> artilleryLock`, plus a `230mm` name fallback, so `R_230mm_HE` starts the impact tracker.
+- `CHANGELOG.md` 1.2.1 updated. Validation: `eslint` (useAthenaHub) clean, `tsc -b` OK.
+- Live test of the full package `v1.2.0-test (4ca0486)` (server + UI + PBO; PC and iPad both show `4ca0486`):
+  - iPad without F5: M4 Scorcher track and Fire Control panel shown live (`NightHawk FREE HDG`); the client-clock fix is confirmed
+  - M4: after the first impact, shot 2's ETA matches the in-game Artillery Computer (2355 m, ETA 47 s), and the target is the real impact point (`4664,5294`) instead of the map-edge HDG guess; the impact correction is confirmed
+  - M5 Sandstorm `R_230mm_HE`, same target (Artillery Computer: 2378 m, ETA 29 s):
+    - shot 1 ETA 38 s (HDG 5000 m guess)
+    - shot 2 ETA 26 s, with the target moved to the real impact point `4669,4960`
+    - the weapon-`artilleryLock` fix works; `fired_impact` is now sent for the M5
+    - 26 s is the measured time of flight of shot 1; the in-game 29 s is the computer's estimate (an earlier test measured 23 s vs. 28 s shown)
+  - still open: reconnect after the tablet screen was off
+
+### 2026-11-22 — CRITICAL: v1.2.0 never starts in a mission (main-menu guard) + Bus mod conflict
+- Perf live test: the server received no PUTs at all. The owner's RPTs (copied to the USB drive) show for **Workshop v1.2.0** and the perf test PBO, inside the real mission `Editor Athena Remastered v1.1.7.Malden`:
+  - `Athena Init: context is3DEN=false mainMenu=true missionDisplay=false missionName=Editor%20Athena%20Remastered%20v1%2e1%2e7`
+  - `Athena Init: main menu, not starting`
+- Cause: the PR #4 guard exited when the main menu display (IDD 0) was open. That display is still open while a real mission runs `postInit`, and IDD 46 does not exist yet, so Athena never started in any mission. The published v1.2.0 is broken for every user.
+- The RPTs also explain earlier test results:
+  - the 15:24 and 15:50 sessions loaded the **old** Workshop `athena.fixed.pbo` (no guard, no SQF fixes), not the test PBOs, which is why the duplicate shots persisted
+  - the guard was never live-verified
+  - the perf FPS measurement (17 FPS / CPU 68%) was taken while Athena was not running and is invalid
+- Fix (`init.sqf`):
+  - after the `is3DEN` check, `waitUntil { sleep 0.5; !isNull findDisplay 46 }`; the mission display only exists in a played mission (SP, editor preview, MP client), and in the main menu scene the script just waits
+  - safety net: exit if IDD 0 is open and `missionName` contains "intro" (`introExp`, `Malden_intro`)
+  - diag lines for the RPT
+  - `CHANGELOG.md` 1.2.1: added as the first fix
+- **Bus mod conflict:** the owner's launch line always loads `@Athena - An Arma 2nd Screen Application` together with AR. Both addons use the `athena` name and `\athena\` paths, so one overrides the other's scripts. Backlog: give AR its own addon name/prefix, and guard against a double init.
+- Owner instructions never said to disable Bus's mod; AR's README/Workshop text also doesn't mention it (to add).
+- **Live result, test PBO `9e8d06d`** (AR only, Bus mod off, `-noBE`, Play Scenario from Eden):
+  - Athena connects; the iPad shows Malden live with 15 groups, 66 units and 15 vehicles
+  - FPS 17 / GPU 23% / CPU 63%, vs. 17 FPS / CPU 76% without Athena: no measurable FPS cost with 66 units
+  - the init fix and the 4 Hz throttle are confirmed
+  - one `srifle_LRR_camo_F` shot = exactly **one** Recent Shots entry: the first live test with the new SQF actually loaded; the duplicate-shot fix is confirmed
+  - crew labels confirmed live: M4 Scorchers show `D:` / `G:` / `C:` with the real crew names (`ParseCrew` fix); vehicles show Bus silhouettes (the v1.2.0 package server already includes them)
+  - observation: at mid zoom the 80 px vehicle silhouettes are much larger than in the in-game map, overlap each other and cover unit labels around Saint Martin (M4 / Sandstorm / Sentinel). Candidate: zoom-dependent vehicle icon size.
+  - movement at 4 Hz is "reasonably smooth". Owner wants a user option (smoother vs. FPS). Plan: client-side position interpolation (no game cost), plus a sidebar update-rate choice (2/4/10 Hz) sent to Arma through the request queue (`ATHENA_UPDATE_INTERVAL`).
+  - icon size: fine zoomed in; zoomed out all blue merges into one blob. Plan: zoom-scaled vehicle silhouettes, unit name labels only above a zoom threshold.
+  - M5 Sandstorm `R_230mm_HE` at Sainte Marie (in-game Artillery Computer: 1665 m, ETA 21 s):
+    - direction correct; AR ETA 38 s, because `HDG` assumes the fixed 5000 m rocket range (curve: ~25 s at 1665 m, ~40 s at 5000 m)
+    - no correction after impact, even after several shots at the same target: `fired_impact` evidently is not sent for the M5
+    - cause: CfgAmmo `artilleryLock` is not set for `R_230mm_HE` (it is a CfgWeapons property), and none of the indirect-fire name patterns match `rockets_230mm_GAT` / `R_230mm_HE` / `12Rnd_230mm_rockets`
+    - fix: also check the weapon's `artilleryLock` and rocket/230mm name patterns. The real ETA/range fix is projectile tracking v2.
+
 ### 2026-11-22 — 1.2.1: performance quick wins (Workshop community report)
 - A community member (Mrakos) posted an FPS-slowdown analysis in the Workshop discussions. Checked each claim against the code:
   - **per-frame work: confirmed, the main cost.** `monitorArma.sqf` ran `MissionTime` + `MissionUpdates` + `updateend` in an `EachFrame` handler, with one blocking `callExtension` (synchronous HTTP to the local server) per tracked unit and vehicle, every frame.
@@ -367,7 +437,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 ## Backlog
 
 - [x] Install the .NET 9 SDK on the dev machine (done 2026-11-22, 9.0.321).
-- [ ] Safari vs Chrome sync drift on tablets. Projectile timing should not depend on the client clock: compute a server-clock offset or use server-relative times. Check SignalR reconnect/keep-alive behaviour on iOS Safari.
+- [x] (2026-11-22, 1.2.1: events stamped with the device receive time) Safari vs Chrome sync drift on tablets. Projectile timing should not depend on the client clock: compute a server-clock offset or use server-relative times. Check SignalR reconnect/keep-alive behaviour on iOS Safari.
 - [x] Adopt the shared UI core from Web2 with an AR adapter (SignalR) and `appConfig` (`landmaskRowOrder: 'north-first'`) (branch `feat/adopt-shared-core`, pending the owner's live test).
 - [ ] Steam Workshop pages: align AR and Web2. Names differ ("Athena Remastered" vs "@AthenaWeb2"), Web2's tags are odd (Animation, Editor Extension, Equipment, Terrain; AR: Mechanics), and the description styles differ. Owner request 2026-11-22, screenshots from Arma 3 Publisher.
 - [ ] Optional: offline world picker for AR (`CAPABILITIES.worldPicker`) over AR's cached worlds.
@@ -388,4 +458,5 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - [x] Turn `ATHENA_DEBUG_FIRED` off by default (done 2026-11-22, branch `fix/perf-quick-wins`).
 - [ ] GitHub: branch ruleset like Web2, a release-notes template, tag `v1.1.6`, GitHub Releases.
 - [ ] README/About in Web2's structure.
+- [ ] Rename AR's addon (CfgPatches `athena`, PBO prefix `\athena\`, `ATH_fnc_*`) so it can run next to Bus's Athena mod (Web2 users load both); guard `init.sqf` against a double start; document the conflict until then.
 - [ ] Map Style Ground / Pilot rework (shared core, implemented in Web2 and synced; owner request 2026-11-22): **Ground** = height map for ground troops, **Pilot** = black-and-white height map (dark = low, light = high) so pilots see peaks and valleys at a glance. 2D is fine as is.

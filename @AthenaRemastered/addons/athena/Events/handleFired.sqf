@@ -108,7 +108,12 @@ private _weaponText = toLower format ["%1 %2 %3", _weapon, _ammo, _magazine];
 //   and the Mk41 VLS cruise missile)
 // - irLock / laserLock / airLock / nvLock / manualControl: seeker or guidance
 private _ammoCfg = configFile >> "CfgAmmo" >> _ammo;
-private _isArtilleryAmmo = getNumber (_ammoCfg >> "artilleryLock") > 0;
+// artilleryLock can sit on the ammo or on the weapon. The M5 Sandstorm's
+// R_230mm_HE has no ammo-level flag, so its rockets were still not tracked to
+// impact in the 1.2.1 test (Malden, 2026-11-22). Check the weapon too, and keep
+// the 230 mm rocket name as a last resort.
+private _weaponCfg = configFile >> "CfgWeapons" >> _weapon;
+private _isArtilleryAmmo = (getNumber (_ammoCfg >> "artilleryLock") > 0) || {getNumber (_weaponCfg >> "artilleryLock") > 0} || {(_weaponText find "230mm") >= 0};
 private _hasSeeker = (getNumber (_ammoCfg >> "irLock") > 0) || {getNumber (_ammoCfg >> "laserLock") > 0} || {getNumber (_ammoCfg >> "airLock") > 0} || {getNumber (_ammoCfg >> "nvLock") > 0} || {getNumber (_ammoCfg >> "manualControl") > 0};
 // Cruise missiles use the Artillery Computer but are guided, so they stay guided.
 private _isGuided = ((_weaponText find "cruise") >= 0) || {!_isArtilleryAmmo && {_hasSeeker || {(_weaponText find "missile") >= 0}}};

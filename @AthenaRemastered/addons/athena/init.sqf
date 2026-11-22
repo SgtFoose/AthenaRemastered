@@ -17,8 +17,23 @@ diag_log format ["Athena Init: context is3DEN=%1 mainMenu=%2 missionDisplay=%3 m
 	is3DEN, !isNull (findDisplay 0), !isNull (findDisplay 46), missionName];
 //Eden editor: editing, not playing (an editor preview does play the mission, and is3DEN is false there).
 if (is3DEN) exitWith { diag_log "Athena Init: Eden editor, not starting"; };
-//Main menu background scene: the main menu display (RscDisplayMain, IDD 0) is open.
-if (!isNull (findDisplay 0)) exitWith { diag_log "Athena Init: main menu, not starting"; };
+//Main menu background scene vs. a real mission: wait for the mission display
+//(RscDisplayMission, IDD 46), which only exists while a mission is being played
+//(singleplayer, editor preview, multiplayer client). The main menu's background
+//scene never gets it, so there this script just waits harmlessly until the scene
+//ends.
+//v1.2.0 instead exited when the main menu display (IDD 0) was open. That display
+//is still open while a real mission initialises (postInit runs before IDD 46
+//exists), so Athena never started in any mission (RPT, Malden, 2026-11-22:
+//"context is3DEN=false mainMenu=true missionDisplay=false missionName=Editor...").
+if (isNull (findDisplay 46)) then { diag_log "Athena Init: waiting for the mission display (IDD 46)"; };
+waitUntil { sleep 0.5; !isNull (findDisplay 46) };
+//Safety net in case a background scene does create IDD 46: the menu scenes are
+//named like "introExp" / "Malden_intro" and run with the main menu display open.
+if (!isNull (findDisplay 0) && {((toLower missionName) find "intro") >= 0}) exitWith {
+	diag_log format ["Athena Init: main menu background scene (%1), not starting", missionName];
+};
+diag_log format ["Athena Init: mission display found, starting (mainMenu=%1 missionName=%2)", !isNull (findDisplay 0), missionName];
 
 //check for player
 diag_log "Athena Init: waiting for player...";

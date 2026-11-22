@@ -1,4 +1,4 @@
-import { HubConnectionBuilder, HubConnection, LogLevel } from '@microsoft/signalr';
+import { HubConnectionBuilder, HubConnection, HubConnectionState, LogLevel } from '@microsoft/signalr';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { GameFrame, FiredEvent, FiredImpactEvent, KilledEvent, WorldInfo, Road, ForestsData, MapLocation, MapStructure, ElevationsData, ServerSettings, ExportStatus } from '../core/types/game';
 
@@ -12,6 +12,30 @@ const HUB_URL = `${API_BASE}/hub`;
 // We invert Y so that North (high Y) is up on the map.
 export function armaToLatLng(posX: number, posY: number, worldSize: number): [number, number] {
   return [posY / worldSize * 100, posX / worldSize * 100];
+}
+
+/**
+ * Re-stamps a live event with THIS device's receive time.
+ *
+ * The server stamps `at` with its own clock (the PC running the server). The
+ * projectile tracking compares event times with `Date.now()`, so on a device
+ * whose clock is a few seconds off (seen on an iPad, Malden, 2026-11-22) every
+ * projectile looked already landed or not yet fired: no tracks and no Fire
+ * Control panel, and F5 didn't help. Live events arrive within a fraction of a
+ * second, so the local receive time is an accurate, clock-independent "fired at".
+ */
+function stampReceived<T extends { at: string }>(e: T): T {
+  return { ...e, at: new Date().toISOString() };
+}
+
+/**
+ * Reconnect delays for SignalR: 0 s, 1 s, 2 s, 4 s, 8 s, then every 10 s,
+ * forever. The library default ([0, 2, 10, 30] s, then give up) left tablets
+ * disconnected after the screen had been off, until the user pressed F5.
+ */
+function reconnectDelayMs(previousRetryCount: number): number {
+  if (previousRetryCount === 0) return 0;
+  return Math.min(10_000, 1000 * 2 ** Math.min(previousRetryCount - 1, 4));
 }
 
 export function useAthenHub() {
@@ -150,7 +174,7 @@ export function useAthenHub() {
   useEffect(() => {
     const conn = new HubConnectionBuilder()
       .withUrl(HUB_URL)
-      .withAutomaticReconnect()
+      .withAutomaticReconnect({ nextRetryDelayInMilliseconds: ctx => reconnectDelayMs(ctx.previousRetryCount) })
       .configureLogging(LogLevel.Warning)
       .build();
 
@@ -160,8 +184,9 @@ export function useAthenHub() {
       if (f.world) handleWorldInfo(f.world);
     });
     conn.on('Killed',      (e: KilledEvent)      => setRecentKills(prev        => [e, ...prev].slice(0, 50)));
-    conn.on('Fired',       (e: FiredEvent)       => setRecentFired(prev        => [e, ...prev].slice(0, 200)));
-    conn.on('FiredImpact', (e: FiredImpactEvent) => setRecentFiredImpacts(prev => [e, ...prev].slice(0, 500)));
+    // Fired / impact times use this device's clock (see stampReceived).
+    conn.on('Fired',       (e: FiredEvent)       => setRecentFired(prev        => [stampReceived(e), ...prev].slice(0, 200)));
+    conn.on('FiredImpact', (e: FiredImpactEvent) => setRecentFiredImpacts(prev => [stampReceived(e), ...prev].slice(0, 500)));
     conn.on('WorldInfo', (wi: WorldInfo)    => handleWorldInfo(wi));
     conn.on('Roads',      (r: Road[])         => setRoads(r));
     conn.on('Forests',    (fd: ForestsData)   => setForests(fd));
@@ -175,28 +200,47 @@ export function useAthenHub() {
     // left the UI showing "Connected" (and stale units) for a long time after the
     // server stopped. Treat "reconnecting" as disconnected right away.
     conn.onreconnecting(() => setConnected(false));
-    conn.onclose(()        => setConnected(false));
     conn.onreconnected(()  => setConnected(true));
 
     // withAutomaticReconnect() only retries after a successful initial connect.
-    // This loop retries the very first connection attempt until the backend is up.
+    // This loop retries the very first connection attempt until the backend is up,
+    // and is reused when the connection closed anyway (see onclose / visibility).
     let stopped = false;
+    let starting = false;
     const startWithRetry = async () => {
-      while (!stopped) {
+      if (starting) return;
+      starting = true;
+      while (!stopped && conn.state === HubConnectionState.Disconnected) {
         try {
           await conn.start();
           setConnected(true);
-          return;
+          break;
         } catch {
           await new Promise(r => setTimeout(r, 3000));
         }
       }
+      starting = false;
     };
-    startWithRetry();
+    // With the endless reconnect policy onclose should only follow conn.stop();
+    // if it closes for any other reason, start again instead of staying offline.
+    conn.onclose(() => {
+      setConnected(false);
+      if (!stopped) void startWithRetry();
+    });
+    // Tablets suspend background tabs (screen off, app switch). When the page is
+    // visible again, reconnect straight away instead of waiting for the next retry.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && conn.state === HubConnectionState.Disconnected) {
+        void startWithRetry();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    void startWithRetry();
 
     connRef.current = conn;
     return () => {
       stopped = true;
+      document.removeEventListener('visibilitychange', onVisible);
       stopExportPolling();
       conn.stop();
     };
