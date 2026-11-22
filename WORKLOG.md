@@ -24,6 +24,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - Simulation (test build `878ff7e`, put API): `vehicle` with the crew sent as the string `[["2:10","gunner"],["2:11","commander"]]` → `/api/game/state` shows `crew` with both roles. Headless screenshot: the header shows `v1.2.0-test` and `Donate` in full. The duplicate-shot fix is SQF-only and needs the live test.
 - Test package: the owner's D: drive (USB) was no longer present, so the complete mod folder is staged at `C:\AthenaRemastered-test\@AthenaRemastered`. Contents: new unsigned `athena.pbo`, DLL `3DE7F325…` unchanged, `Server\` test build `878ff7e`, and `TEST-INSTRUCTIONS.txt` explaining how to verify via the `FIRED PUT received` console line.
 - The v1.2.0 draft release asset is now outdated; it will be rebuilt after these fixes are merged and the PBO is signed.
+- Note: the test build label `878ff7e` refers to a pre-amend commit. Its code is identical to `23b75d6`; only `WORKLOG.md` differs.
 
 ### 2026-11-22 — PRs merged; test builds of main on D:
 - Owner merged Web2 #8, #9 and AR #4–#8 (merge commits). Local `main` fast-forwarded in both repos (Web2 `d3278fb`, AR `e15e8a0`); merged local branches deleted.
