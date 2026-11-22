@@ -34,6 +34,7 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 - Line endings: Git for Windows (`core.autocrlf`) warned "LF will be replaced by CRLF" on the copied core files. The sync manifest hashed raw bytes, so later checkouts would have flagged every core file as "modified in AR".
   - Fixed in Web2's sync script (`5a1c226`: CRLF→LF normalised hashing).
   - Re-ran with `-Force` to rewrite `core-manifest.json`: the old manifest flagged all 17 files (the false positive), **0 files were copied** (content identical), and only the manifest changed.
+- Owner approved push + PR. Opened **PR #2** https://github.com/SgtFoose/AthenaRemastered/pull/2. It depends on Web2 PR #6, and should only be merged after the owner's live Arma test (rendering on a cached map, lazes/projectiles as before, collapsible menus, I-TGT, welcome screen in the main menu).
 
 ### 2026-11-22 — Process + layout: Claude Code setup and repo flatten (Phase 2 step 1 of the Web2 → AR UI core sync)
 - Context: the owner moved development from GitHub Copilot to Claude Code (the same process as Athena Web 2) and asked to bring AR and Web2 in sync, including GitHub structure and releases. Plan: Web2 `docs/ui-core-sync.md` (merged in Web2 PR #5).
