@@ -73,4 +73,4 @@ Jeroen van der Velden
 
 ═════════════════════════════════════════════════════════════════════════════
 
-ATTACHMENT: AthenaServer_x64.dll (from: AthenaRemastered/@AthenaRemastered/AthenaServer_x64.dll)
+ATTACHMENT: AthenaServer_x64.dll (from: @AthenaRemastered/AthenaServer_x64.dll)

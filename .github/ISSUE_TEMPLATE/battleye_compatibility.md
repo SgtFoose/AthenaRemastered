@@ -36,7 +36,7 @@ Paste exact launch args from Arma profile.
 
 **DLL metadata (if known)**
 If possible, include output from:
-`AthenaRemastered/tools/Get-AthenaDllMetadata.ps1`
+`tools/Get-AthenaDllMetadata.ps1`
 
 **Additional context**
 Any extra details that could help triage quickly.

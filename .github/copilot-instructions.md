@@ -6,7 +6,7 @@ Three components: **Extension** (C++ DLL loaded by Arma 3) → **Backend** (ASP.
 
 ## Repository Boundaries (Important)
 - This repository (`AthenaRemastered`) is for the DLL/Backend/Frontend remaster line (`v1.x`).
-- Web2 client-only work (`v0.x`) belongs in the separate repository/folder: `C:\Users\jvdv2\Documents\Athena Web 2`.
+- Web2 client-only work (`v0.x`) belongs in the separate repository https://github.com/SgtFoose/Athena-Web-2 (local `C:\Athena-Web-2`). Canonical project rules now live in `CLAUDE.md`.
 - Do not add, move, or update Web2 artifacts in this repo:
   - `bridge/` service code
   - Web2-only UI docs/changelogs/worklogs
@@ -14,11 +14,11 @@ Three components: **Extension** (C++ DLL loaded by Arma 3) → **Backend** (ASP.
 
 ## Repository Layout
 ```
-AthenaRemastered/
-  Backend/            ASP.NET Core 9, port 5000
-  Extension/          C++ DLL (AthenaServer_x64.dll), loaded by Arma 3
-  Frontend/           React 19 + Vite 7, port 5173
-  @AthenaRemastered/  Arma 3 mod folder (SQF source + DLL + PBO)
+(repo root — flattened 2026-11-22; previously nested under AthenaRemastered/)
+Backend/            ASP.NET Core 9, port 5000
+Extension/          C++ DLL (AthenaServer_x64.dll), loaded by Arma 3
+Frontend/           React 19 + Vite 7, port 5173
+@AthenaRemastered/  Arma 3 mod folder (SQF source + DLL + PBO)
 ```
 
 ## Data Flow
@@ -113,11 +113,11 @@ Arma 3  →  C++ Extension (callExtension)  →  Backend REST API (POST /api/gam
 ## How to Run
 ```powershell
 # One-click:
-.\AthenaRemastered\launch.ps1
+.\launch.ps1
 
 # Or manually:
-cd AthenaRemastered/Backend; dotnet run -c Release
-cd AthenaRemastered/Frontend; npm run dev
+cd Backend; dotnet run -c Release
+cd Frontend; npm run dev
 ```
 - Frontend: http://localhost:5173
 - Backend API: http://localhost:5000
