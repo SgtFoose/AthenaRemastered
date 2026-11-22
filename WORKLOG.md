@@ -4,6 +4,38 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — PRs merged; test builds of main on D:
+- Owner merged Web2 #8, #9 and AR #4–#8 (merge commits). Local `main` fast-forwarded in both repos (Web2 `d3278fb`, AR `e15e8a0`); merged local branches deleted.
+- AR test package `D:\AthenaRemastered-test` (`v1.2.0-test (e15e8a0)`):
+  - `publish.ps1` (test build, run via `powershell -NoProfile -ExecutionPolicy Bypass -File`), `publish/` mirrored to `Server\`; tracked `@AthenaRemastered/Server/wwwroot` restored afterwards.
+  - `athena.pbo` packed from `@AthenaRemastered/addons/athena` with `pack-pbo.ps1` (28 files, 74.4 KB, unsigned; `-noBE` only).
+  - `TEST-INSTRUCTIONS.txt` rewritten for PRs #4–#8 (main-menu guard, persistent map cache, Desktop forest cells, NATO markers, one feed entry per shot).
+- Web2 test EXE `D:\AthenaWeb2-test\AthenaWeb.exe` (`v0.1.1-test (d3278fb)`): `npm --prefix ui run build` (no `ATHENA_RELEASE`), `robocopy ui\dist bridge\wwwroot /MIR`, pkg output straight to D:; tracked `bridge/wwwroot` restored so `bridge/dist` and the repo stay unchanged. `TEST-INSTRUCTIONS.txt` added.
+- Validation: both builds exit 0; the embedded commit SHA was found in each bundle; `git status` clean in both repos.
+- Pending: owner live test in Arma.
+
+#### 2026-11-22 follow-up — Complete local mod folder on D:
+- Owner asked for the latest AR including the UI on D:. Assembled `D:\@AthenaRemastered` so it can be loaded as a local mod (`-mod=D:\@AthenaRemastered`) without replacing Workshop files: test `athena.pbo` (unsigned, no `.bisign`), `keys\AthenaRemasteredKey.bikey`, `mod.cpp`, `AthenaServerSettings.txt`, `AthenaServer_x64.dll` extracted from `AthenaServer_x64.zip` (SHA256 `3DE7F325…1EE02`, the v1.1.5 BattlEye-submitted binary, unchanged) and `Server\` (test build `e15e8a0` with `wwwroot`). `TEST-INSTRUCTIONS.txt` explains the local-mod launch.
+- Removing the older `D:\AthenaRemastered-test` was blocked by the tool's protected-path rule; it was left in place.
+
+### 2026-11-22 — release: v1.2.0 GitHub Release prepared (draft)
+- AR had no GitHub Releases or tags yet. Owner chose a v1.2.0 **draft** release: the live Arma test and PBO signing (key and DSSignFile are not on this machine) happen before publishing.
+- Branch `release/v1.2.0` (renamed from the local `docs/log-test-builds`, so the D: log entry rides along).
+- `.github/release-notes-template-v1.2.0.md`: end-user notes modelled on Web2's v0.1.1 template (install from zip as a local mod, start, first-time export, BattlEye `-noBE`, troubleshooting, SmartScreen, What's New, Known Limitations).
+- `README.md`: the "Alternative" install section now describes the release zip instead of a standalone `AthenaRemastered.Server.exe` (the EXE needs its `wwwroot` next to it) and drops the unneeded `-filePatching`.
+- Asset `AthenaRemastered-v1.2.0.zip` (49.5 MB, SHA256 `B18F2E01E4E43ED024D39D02A641B5CB3E3C630B88768D8BAD070AA788FD355A`), built from `e15e8a0` with `publish.ps1 -Release` (no `-test` label in the bundle, verified):
+  - `@AthenaRemastered\` with `addons\athena.pbo` (packed with `pack-pbo.ps1`, **unsigned**), `keys\`, `mod.cpp`, `AthenaServerSettings.txt`, `AthenaServer_x64.dll`
+  - `Server\` without `.pdb`, `appsettings.Development.json` and `Logs\`
+  - tracked `@AthenaRemastered/Server/wwwroot` restored afterwards
+- `CHANGELOG.md` keeps `[1.2.0] - Unreleased` until the release is published.
+- Draft created (owner approved; `gh auth status`: SgtFoose): `gh release create v1.2.0 --draft --target main --notes-file .github/release-notes-template-v1.2.0.md <zip>`. Validation: `isDraft: true`, asset digest `sha256:b18f2e01…d355a` equals the local SHA256; no remote tag exists yet (created on publish).
+- #### TODO before publishing
+  - owner live test of the release zip in Arma
+  - sign `athena.pbo` with the AthenaRemastered key (`athena.pbo.AthenaRemasteredKey.bisign`), rebuild the zip and replace the draft asset; compare the local SHA256 with the asset digest
+  - set the CHANGELOG date, merge `release/v1.2.0`, then publish the draft (creates tag `v1.2.0` on `main`)
+  - Workshop update (optional)
+- Owner approved the push: branch `release/v1.2.0` pushed, PR #9 → `main`.
+
 ### 2026-11-22 — Pushed branches and opened stacked PRs
 - Owner approved the push. `gh auth status`: SgtFoose; commit identity is the SgtFoose noreply address in both repos.
 - Web2:
