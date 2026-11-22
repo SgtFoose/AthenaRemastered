@@ -4,6 +4,17 @@ Purpose: chronological record of every step, fix, investigation and decision in 
 
 ## Timeline
 
+### 2026-11-22 — Live test 788d6f4: still two shots per shot; vehicles still squares
+- Owner tested `v1.2.0-test (788d6f4)`; the footer confirms the new server. Results:
+  - one `srifle_LRR_camo_F` shot still gave two Recent Shots entries
+  - the vehicles were still blue squares
+- Isolation: a single simulated `fired` PUT on this build gives exactly one feed entry (headless screenshot), and the DLL (`Extension/dllmain.cpp`, `put`) posts once per callExtension. So Arma sends two PUTs per shot. With the new PBO the projectile list guard should make that impossible, which strongly suggests the session still loaded the Workshop `athena.pbo` (1.1.6, FiredMan + Fired). To verify: the new PBO writes `Athena Init: context` lines to the RPT.
+- **Server-side guard** (`Backend/Services/GameStateService.cs`):
+  - new `IsDuplicateFired`: same shooter + weapon + muzzle + ammo + projectile string within 250 ms is dropped (40 ms when the projectile is null)
+  - the feed is now correct whichever PBO is loaded
+  - `vehicleId` is deliberately not part of the key
+- **Vehicles:** core sync from Web2 (`f53b4ad`). Every vehicle is now a Bus silhouette; the NATO frames for drones, turrets, radars, MLRS and VLS are removed.
+
 ### 2026-11-22 — release: PBO signing prerequisites
 - The owner's PC with Arma 3 Tools has been wiped. Searched this machine (`C:\Users`) and the owner's USB drive (`D:\`) for `*.biprivatekey`: none found, only the public `AthenaRemasteredKey.bikey`. The private key is gitignored by design (`.gitignore`: `*.biprivatekey`).
 - Needed to sign:

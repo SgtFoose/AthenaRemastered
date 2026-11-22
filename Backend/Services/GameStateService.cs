@@ -221,11 +221,64 @@ public class GameStateService
         OnFrame?.Invoke(frame);
     }
 
+    // ── Duplicate "fired" guard ──────────────────────────────────────────────
+    // Live tests (Malden, 2026-11-22) still showed two Recent Shots entries per
+    // shot: older addon builds (e.g. the Workshop PBO) attach both a FiredMan and a
+    // Fired handler to each unit, and both report the same projectile within the
+    // same game frame. The server drops the second report, so the feed is correct
+    // whichever PBO is loaded.
+
+    /// <summary>Window in which an identical report of the same projectile is a duplicate.</summary>
+    private static readonly TimeSpan FiredDuplicateWindow = TimeSpan.FromMilliseconds(250);
+    /// <summary>
+    /// Shorter window when the projectile id is missing (null projectile): both
+    /// handlers report in the same frame (a few ms apart), while even a minigun
+    /// fires its next round more than ~10 ms later and gets its own projectile id.
+    /// </summary>
+    private static readonly TimeSpan FiredDuplicateWindowNoProjectile = TimeSpan.FromMilliseconds(40);
+    private readonly object _firedDedupeLock = new();
+    /// <summary>Last arrival time (UTC) per fired key; pruned after 2 s.</summary>
+    private readonly Dictionary<string, DateTime> _recentFiredKeys = new();
+
+    /// <summary>
+    /// True when this report repeats one received moments ago for the same
+    /// shooter, weapon, ammo and projectile. Side effect: records the key.
+    /// </summary>
+    /// <param name="projectile">Arma's string form of the projectile object
+    /// (unique per live projectile), or empty / "&lt;NULL-object&gt;".</param>
+    private bool IsDuplicateFired(string unitId, string vehicleId, string weapon, string muzzle, string ammo, string projectile)
+    {
+        var hasProjectile = !string.IsNullOrWhiteSpace(projectile) && !projectile.Contains("NULL", StringComparison.OrdinalIgnoreCase);
+        // vehicleId is left out on purpose: the handlers may disagree on it, while
+        // shooter + weapon + ammo + projectile already identify the round.
+        _ = vehicleId;
+        var key = $"{unitId}|{weapon}|{muzzle}|{ammo}|{(hasProjectile ? projectile : "")}";
+        var window = hasProjectile ? FiredDuplicateWindow : FiredDuplicateWindowNoProjectile;
+        var now = DateTime.UtcNow;
+        lock (_firedDedupeLock)
+        {
+            if (_recentFiredKeys.Count > 256)
+            {
+                foreach (var stale in _recentFiredKeys.Where(kv => now - kv.Value > TimeSpan.FromSeconds(2)).Select(kv => kv.Key).ToList())
+                    _recentFiredKeys.Remove(stale);
+            }
+            var duplicate = _recentFiredKeys.TryGetValue(key, out var last) && now - last <= window;
+            _recentFiredKeys[key] = now;
+            return duplicate;
+        }
+    }
+
+    /// <summary>
+    /// Stores and broadcasts a fired event (SignalR "Fired"), unless it duplicates
+    /// a report of the same projectile received moments earlier.
+    /// </summary>
     public void PutFired(string unitId, string vehicleId, string weapon,
                          string muzzle, string mode, string ammo, string magazine, string projectile,
                          double targetX, double targetY, string targetSource, string targetEntityId, bool targetAmbiguous,
                          double fireDir)
     {
+        if (IsDuplicateFired(unitId, vehicleId, weapon, muzzle, ammo, projectile)) return;
+
         var e = new FiredEvent
         {
             UnitId = unitId, VehicleId = vehicleId, Weapon = weapon,
